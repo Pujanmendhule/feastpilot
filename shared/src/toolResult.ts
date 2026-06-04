@@ -1,5 +1,11 @@
-/*
-Purpose: Shared ToolResult contract placeholder.
-TODO: Define the stable success, data, error, and metadata ToolResult shape when implementation begins.
-TODO: Keep this contract unchanged across mock and Swiggy MCP providers.
-*/
+export interface ToolResultMetadata {
+    source: string;
+    timestamp: string;
+  }
+  
+  export interface ToolResult<T = unknown> {
+    success: boolean;
+    data: T | null;
+    error?: string;
+    metadata?: ToolResultMetadata;
+  }
