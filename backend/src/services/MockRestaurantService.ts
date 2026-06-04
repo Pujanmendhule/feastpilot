@@ -15,4 +15,19 @@ export class MockRestaurantService {
       (restaurant) => restaurant.isAvailable
     );
   }
+
+  searchRestaurants(query: string) {
+    const normalized = query.trim().toLowerCase();
+
+    return restaurants.filter((restaurant) => {
+      const nameMatch = restaurant.name
+        .toLowerCase()
+        .includes(normalized);
+      const cuisineMatch = restaurant.cuisines.some((cuisine) =>
+        cuisine.toLowerCase().includes(normalized)
+      );
+
+      return nameMatch || cuisineMatch;
+    });
+  }
 }
