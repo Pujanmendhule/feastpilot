@@ -1,5 +1,19 @@
-/*
-Purpose: Tool layer export placeholder.
-TODO: Export restaurant, menu, and cart tools when implementation begins.
-TODO: Keep tools as the only agent-facing data and cart boundary.
-*/
+export {
+  searchRestaurants,
+  type SearchRestaurantsInput,
+  type SearchRestaurantsResult,
+} from "./searchRestaurants.tool";
+
+export {
+  getRestaurant,
+  type GetRestaurantInput,
+  type GetRestaurantResult,
+} from "./getRestaurant.tool";
+
+export {
+  getMenu,
+  type GetMenuInput,
+  type GetMenuResult,
+} from "./getMenu.tool";
+
+export { createCart, type CreateCartResult } from "./createCart.tool";

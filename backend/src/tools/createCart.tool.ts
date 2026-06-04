@@ -1,5 +1,17 @@
-/*
-Purpose: Cart creation tool placeholder.
-TODO: Add createCart tool wrapper when implementation begins.
-TODO: Require authoritative restaurant and menu item references.
-*/
+import type { Cart } from "../types/cart";
+import { cartService } from "../services/CartService";
+
+export type CreateCartResult = {
+  success: boolean;
+  data: Cart;
+  error?: string;
+};
+
+export async function createCart(): Promise<CreateCartResult> {
+  const cart = cartService.createCart();
+
+  return {
+    success: true,
+    data: cart,
+  };
+}
