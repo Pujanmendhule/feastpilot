@@ -1,0 +1,138 @@
+[
+    {
+    "id": "pizza_hut",
+    "name": "Pizza Hut",
+    "cuisines": ["Italian", "Pizza"],
+    "rating": 4.4,
+    "priceRange": "mid",
+    "deliveryEstimateMinutes": 30,
+    "isAvailable": true
+    },
+    {
+    "id": "dominos",
+    "name": "Domino's",
+    "cuisines": ["Italian", "Pizza"],
+    "rating": 4.3,
+    "priceRange": "mid",
+    "deliveryEstimateMinutes": 25,
+    "isAvailable": true
+    },
+    {
+    "id": "behrouz_biryani",
+    "name": "Behrouz Biryani",
+    "cuisines": ["Indian", "Biryani"],
+    "rating": 4.6,
+    "priceRange": "mid",
+    "deliveryEstimateMinutes": 35,
+    "isAvailable": true
+    },
+    {
+    "id": "biryani_by_kilo",
+    "name": "Biryani By Kilo",
+    "cuisines": ["Indian", "Biryani"],
+    "rating": 4.5,
+    "priceRange": "premium",
+    "deliveryEstimateMinutes": 40,
+    "isAvailable": true
+    },
+    {
+    "id": "chinese_wok",
+    "name": "Chinese Wok",
+    "cuisines": ["Chinese"],
+    "rating": 4.2,
+    "priceRange": "budget",
+    "deliveryEstimateMinutes": 28,
+    "isAvailable": true
+    },
+    {
+    "id": "mamagoto",
+    "name": "Mamagoto",
+    "cuisines": ["Asian", "Chinese"],
+    "rating": 4.4,
+    "priceRange": "premium",
+    "deliveryEstimateMinutes": 35,
+    "isAvailable": true
+    },
+    {
+    "id": "sushi_house",
+    "name": "Sushi House",
+    "cuisines": ["Japanese"],
+    "rating": 4.5,
+    "priceRange": "premium",
+    "deliveryEstimateMinutes": 40,
+    "isAvailable": true
+    },
+    {
+    "id": "seoul_bowl",
+    "name": "Seoul Bowl",
+    "cuisines": ["Korean"],
+    "rating": 4.3,
+    "priceRange": "mid",
+    "deliveryEstimateMinutes": 32,
+    "isAvailable": true
+    },
+    {
+    "id": "taco_bell",
+    "name": "Taco Bell",
+    "cuisines": ["Mexican"],
+    "rating": 4.2,
+    "priceRange": "budget",
+    "deliveryEstimateMinutes": 24,
+    "isAvailable": true
+    },
+    {
+    "id": "mcdonalds",
+    "name": "McDonald's",
+    "cuisines": ["American", "Burgers"],
+    "rating": 4.2,
+    "priceRange": "budget",
+    "deliveryEstimateMinutes": 20,
+    "isAvailable": true
+    },
+    {
+    "id": "kfc",
+    "name": "KFC",
+    "cuisines": ["American", "Chicken"],
+    "rating": 4.3,
+    "priceRange": "mid",
+    "deliveryEstimateMinutes": 25,
+    "isAvailable": true
+    },
+    {
+    "id": "subway",
+    "name": "Subway",
+    "cuisines": ["Healthy", "Sandwiches"],
+    "rating": 4.1,
+    "priceRange": "budget",
+    "deliveryEstimateMinutes": 18,
+    "isAvailable": true
+    },
+    {
+    "id": "hummus_hub",
+    "name": "Hummus Hub",
+    "cuisines": ["Middle Eastern"],
+    "rating": 4.4,
+    "priceRange": "mid",
+    "deliveryEstimateMinutes": 30,
+    "isAvailable": true
+    },
+    {
+    "id": "sweet_truth",
+    "name": "Sweet Truth",
+    "cuisines": ["Desserts"],
+    "rating": 4.6,
+    "priceRange": "mid",
+    "deliveryEstimateMinutes": 20,
+    "isAvailable": true
+    },
+    {
+    "id": "chaayos",
+    "name": "Chaayos",
+    "cuisines": ["Beverages", "Cafe"],
+    "rating": 4.5,
+    "priceRange": "budget",
+    "deliveryEstimateMinutes": 15,
+    "isAvailable": true
+    }
+    ]
+    

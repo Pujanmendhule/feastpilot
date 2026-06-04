@@ -1,0 +1,152 @@
+[
+    {
+      "restaurantId": "pizza_hut",
+      "items": [
+        {"id":"ph_1","name":"Farmhouse Pizza","price":499,"category":"Pizza","isVegetarian":true,"isAvailable":true,"servingEstimate":2},
+        {"id":"ph_2","name":"Veggie Supreme Pizza","price":549,"category":"Pizza","isVegetarian":true,"isAvailable":true,"servingEstimate":2},
+        {"id":"ph_3","name":"Chicken Tikka Pizza","price":629,"category":"Pizza","isVegetarian":false,"isAvailable":true,"servingEstimate":2},
+        {"id":"ph_4","name":"Garlic Bread","price":169,"category":"Sides","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"ph_5","name":"Chicken Wings","price":299,"category":"Sides","isVegetarian":false,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "dominos",
+      "items": [
+        {"id":"dm_1","name":"Veg Extravaganza","price":529,"category":"Pizza","isVegetarian":true,"isAvailable":true,"servingEstimate":2},
+        {"id":"dm_2","name":"Cheese Burst Pizza","price":599,"category":"Pizza","isVegetarian":true,"isAvailable":true,"servingEstimate":2},
+        {"id":"dm_3","name":"Pepper Barbecue Chicken","price":649,"category":"Pizza","isVegetarian":false,"isAvailable":true,"servingEstimate":2},
+        {"id":"dm_4","name":"Stuffed Garlic Bread","price":189,"category":"Sides","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"dm_5","name":"Chicken Parcel","price":149,"category":"Sides","isVegetarian":false,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "behrouz_biryani",
+      "items": [
+        {"id":"bb_1","name":"Paneer Biryani","price":329,"category":"Biryani","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"bb_2","name":"Veg Dum Biryani","price":299,"category":"Biryani","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"bb_3","name":"Chicken Dum Biryani","price":389,"category":"Biryani","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"bb_4","name":"Mutton Biryani","price":499,"category":"Biryani","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"bb_5","name":"Gulab Jamun","price":99,"category":"Dessert","isVegetarian":true,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "biryani_by_kilo",
+      "items": [
+        {"id":"bk_1","name":"Hyderabadi Veg Biryani","price":349,"category":"Biryani","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"bk_2","name":"Paneer Biryani","price":379,"category":"Biryani","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"bk_3","name":"Chicken Hyderabadi Biryani","price":449,"category":"Biryani","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"bk_4","name":"Mutton Hyderabadi Biryani","price":549,"category":"Biryani","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"bk_5","name":"Firni","price":119,"category":"Dessert","isVegetarian":true,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "chinese_wok",
+      "items": [
+        {"id":"cw_1","name":"Veg Hakka Noodles","price":199,"category":"Noodles","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"cw_2","name":"Veg Manchurian","price":229,"category":"Starter","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"cw_3","name":"Chicken Hakka Noodles","price":249,"category":"Noodles","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"cw_4","name":"Chicken Manchurian","price":279,"category":"Starter","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"cw_5","name":"Schezwan Fried Rice","price":219,"category":"Rice","isVegetarian":true,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "mamagoto",
+      "items": [
+        {"id":"mg_1","name":"Veg Dim Sums","price":299,"category":"Starter","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"mg_2","name":"Thai Green Curry","price":379,"category":"Main Course","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"mg_3","name":"Chicken Dim Sums","price":349,"category":"Starter","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"mg_4","name":"Teriyaki Chicken Bowl","price":429,"category":"Main Course","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"mg_5","name":"Pad Thai Noodles","price":399,"category":"Noodles","isVegetarian":false,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "sushi_house",
+      "items": [
+        {"id":"sh_1","name":"Avocado Roll","price":299,"category":"Sushi","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"sh_2","name":"Cucumber Maki","price":249,"category":"Sushi","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"sh_3","name":"California Roll","price":349,"category":"Sushi","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"sh_4","name":"Salmon Nigiri","price":449,"category":"Sushi","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"sh_5","name":"Chicken Katsu","price":499,"category":"Main Course","isVegetarian":false,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "seoul_bowl",
+      "items": [
+        {"id":"sb_1","name":"Veg Bibimbap","price":299,"category":"Rice Bowl","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"sb_2","name":"Kimchi Fried Rice","price":269,"category":"Rice","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"sb_3","name":"Chicken Bibimbap","price":349,"category":"Rice Bowl","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"sb_4","name":"Korean Fried Chicken","price":429,"category":"Starter","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"sb_5","name":"Bulgogi Bowl","price":449,"category":"Main Course","isVegetarian":false,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "taco_bell",
+      "items": [
+        {"id":"tb_1","name":"Bean Burrito","price":179,"category":"Mexican","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"tb_2","name":"Veg Taco","price":149,"category":"Mexican","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"tb_3","name":"Chicken Taco","price":189,"category":"Mexican","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"tb_4","name":"Chicken Burrito","price":229,"category":"Mexican","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"tb_5","name":"Loaded Nachos","price":199,"category":"Snacks","isVegetarian":true,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "mcdonalds",
+      "items": [
+        {"id":"mc_1","name":"McAloo Tikki","price":69,"category":"Burger","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"mc_2","name":"McVeggie Burger","price":179,"category":"Burger","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"mc_3","name":"McChicken Burger","price":199,"category":"Burger","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"mc_4","name":"Chicken Maharaja Mac","price":299,"category":"Burger","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"mc_5","name":"French Fries","price":119,"category":"Sides","isVegetarian":true,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "kfc",
+      "items": [
+        {"id":"kfc_1","name":"Veg Zinger","price":199,"category":"Burger","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"kfc_2","name":"French Fries","price":109,"category":"Sides","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"kfc_3","name":"Chicken Zinger","price":229,"category":"Burger","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"kfc_4","name":"Hot & Crispy Chicken","price":299,"category":"Chicken","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"kfc_5","name":"Chicken Bucket","price":699,"category":"Chicken","isVegetarian":false,"isAvailable":true,"servingEstimate":3}
+      ]
+    },
+    {
+      "restaurantId": "subway",
+      "items": [
+        {"id":"sw_1","name":"Veggie Delight","price":189,"category":"Sandwich","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"sw_2","name":"Paneer Tikka Sub","price":239,"category":"Sandwich","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"sw_3","name":"Chicken Teriyaki Sub","price":279,"category":"Sandwich","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"sw_4","name":"Roasted Chicken Sub","price":299,"category":"Sandwich","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"sw_5","name":"Veg Salad Bowl","price":219,"category":"Salad","isVegetarian":true,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "hummus_hub",
+      "items": [
+        {"id":"hh_1","name":"Falafel Wrap","price":249,"category":"Wrap","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"hh_2","name":"Classic Hummus Plate","price":229,"category":"Appetizer","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"hh_3","name":"Chicken Shawarma","price":299,"category":"Wrap","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"hh_4","name":"Lamb Kebab Plate","price":449,"category":"Main Course","isVegetarian":false,"isAvailable":true,"servingEstimate":1},
+        {"id":"hh_5","name":"Pita Bread Basket","price":129,"category":"Sides","isVegetarian":true,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "sweet_truth",
+      "items": [
+        {"id":"st_1","name":"Chocolate Truffle Cake","price":349,"category":"Dessert","isVegetarian":true,"isAvailable":true,"servingEstimate":2},
+        {"id":"st_2","name":"Red Velvet Cake","price":379,"category":"Dessert","isVegetarian":true,"isAvailable":true,"servingEstimate":2},
+        {"id":"st_3","name":"Brownie","price":149,"category":"Dessert","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"st_4","name":"Blueberry Cheesecake","price":299,"category":"Dessert","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"st_5","name":"Tiramisu Jar","price":249,"category":"Dessert","isVegetarian":true,"isAvailable":true,"servingEstimate":1}
+      ]
+    },
+    {
+      "restaurantId": "chaayos",
+      "items": [
+        {"id":"ch_1","name":"Masala Chai","price":79,"category":"Beverage","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"ch_2","name":"Adrak Chai","price":89,"category":"Beverage","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"ch_3","name":"Cold Coffee","price":149,"category":"Beverage","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"ch_4","name":"Paneer Sandwich","price":169,"category":"Snack","isVegetarian":true,"isAvailable":true,"servingEstimate":1},
+        {"id":"ch_5","name":"Chicken Sandwich","price":199,"category":"Snack","isVegetarian":false,"isAvailable":true,"servingEstimate":1}
+      ]
+    }
+  ]
