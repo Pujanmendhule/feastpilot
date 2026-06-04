@@ -1,5 +1,16 @@
-/*
-Purpose: Restaurant cart group list placeholder.
-TODO: Render all restaurant groups in the active cart.
-TODO: Preserve multi-restaurant grouping from backend state.
-*/
+import type { MockRestaurantGroup } from "@/features/session/sessionState";
+import { RestaurantCartGroup } from "./RestaurantCartGroup";
+
+type RestaurantCartGroupListProps = {
+  groups: MockRestaurantGroup[];
+};
+
+export function RestaurantCartGroupList({ groups }: RestaurantCartGroupListProps) {
+  return (
+    <div className="space-y-3">
+      {groups.map((group) => (
+        <RestaurantCartGroup group={group} key={group.id} />
+      ))}
+    </div>
+  );
+}

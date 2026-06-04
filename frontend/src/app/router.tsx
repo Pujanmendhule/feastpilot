@@ -1,5 +1,15 @@
-/*
-Purpose: Frontend route configuration placeholder.
-TODO: Add routes for ordering, session restore, and development mock-data inspection.
-TODO: Keep route definitions free of feature implementation details.
-*/
+import { Navigate, Route, Routes } from "react-router-dom";
+import { DevMockDataPage } from "@/pages/DevMockDataPage";
+import { OrderingPage } from "@/pages/OrderingPage";
+import { SessionPage } from "@/pages/SessionPage";
+
+export function AppRouter() {
+  return (
+    <Routes>
+      <Route path="/" element={<OrderingPage />} />
+      <Route path="/sessions/:sessionId" element={<SessionPage />} />
+      <Route path="/dev/mock-data" element={<DevMockDataPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}

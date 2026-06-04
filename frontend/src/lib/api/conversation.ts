@@ -1,5 +1,5 @@
 /*
 Purpose: Conversation API client placeholder.
-TODO: Add POST /api/conversation wrapper when implementation begins.
+TODO: Add the conversation request wrapper when backend integration begins.
 TODO: Preserve the shared conversation contract.
 */

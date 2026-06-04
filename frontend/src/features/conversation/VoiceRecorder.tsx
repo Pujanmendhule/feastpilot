@@ -1,5 +1,10 @@
-/*
-Purpose: Voice recorder placeholder.
-TODO: Capture microphone audio for speech-to-text submission.
-TODO: Handle permission and recording states in UI.
-*/
+import { Mic } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export function VoiceRecorder() {
+  return (
+    <Button aria-label="Voice input" size="icon" variant="outline">
+      <Mic className="h-4 w-4" />
+    </Button>
+  );
+}

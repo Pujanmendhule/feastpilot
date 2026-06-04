@@ -1,5 +1,9 @@
-/*
-Purpose: Session status badge placeholder.
-TODO: Render active, loading, expired, and error session states.
-TODO: Source status from backend session data.
-*/
+import { Badge } from "@/components/ui/badge";
+
+type SessionStatusBadgeProps = {
+  status: string;
+};
+
+export function SessionStatusBadge({ status }: SessionStatusBadgeProps) {
+  return <Badge variant="outline">{status}</Badge>;
+}
