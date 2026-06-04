@@ -1,5 +1,10 @@
-/*
-Purpose: Health route placeholder.
-TODO: Add backend health endpoint when implementation begins.
-TODO: Keep health checks lightweight and implementation-neutral.
-*/
+import { Router } from "express";
+
+export const healthRouter = Router();
+
+healthRouter.get("/api/health", (_req, res) => {
+  res.json({
+    success: true,
+    status: "ok",
+  });
+});
