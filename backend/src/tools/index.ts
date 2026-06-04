@@ -17,3 +17,5 @@ export {
 } from "./getMenu.tool";
 
 export { createCart, type CreateCartResult } from "./createCart.tool";
+
+export { getCart, type GetCartInput, type GetCartResult } from "./getCart.tool";
