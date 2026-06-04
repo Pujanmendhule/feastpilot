@@ -19,3 +19,9 @@ export {
 export { createCart, type CreateCartResult } from "./createCart.tool";
 
 export { getCart, type GetCartInput, type GetCartResult } from "./getCart.tool";
+
+export {
+  updateCart,
+  type UpdateCartInput,
+  type UpdateCartResult,
+} from "./updateCart.tool";
