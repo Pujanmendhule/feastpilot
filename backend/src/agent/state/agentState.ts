@@ -19,14 +19,12 @@ export interface AgentState {
   plannedTool: string | null;
   /** Raw result returned by the executed tool, if any */
   toolResult: unknown;
+  /** Restaurant ID to fetch menu for; set by planner when getMenu is planned */
+  restaurantId: string | null;
 }
 
 /**
  * Initialise a fresh {@link AgentState} for a new conversation turn.
- *
- * @param sessionId - The session to which this state belongs.
- * @param userMessage - The incoming user message.
- * @returns An {@link AgentState} with empty/initial values.
  */
 export function createInitialState(
   sessionId: string,
@@ -40,5 +38,6 @@ export function createInitialState(
     toolCalls: [],
     plannedTool: null,
     toolResult: undefined,
+    restaurantId: null,
   };
 }

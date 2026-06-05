@@ -1,58 +1,73 @@
 import type { AgentState } from "../state/agentState";
 import type { SearchRestaurantsResult } from "../tools";
+import type { GetMenuResult } from "../tools";
 
-/** Maximum number of restaurant names to include in the response */
-const MAX_NAMES = 5;
+const MAX_ITEMS = 5;
 
-/**
- * Type guard — checks whether a value looks like a SearchRestaurantsResult.
- */
+// ── Type guards ────────────────────────────────────────────────────────────
+
 function isSearchResult(value: unknown): value is SearchRestaurantsResult {
   return (
     typeof value === "object" &&
     value !== null &&
     "success" in value &&
     "data" in value &&
-    Array.isArray((value as SearchRestaurantsResult).data)
+    Array.isArray((value as SearchRestaurantsResult).data) &&
+    ((value as SearchRestaurantsResult).data.length === 0 ||
+      "name" in (value as SearchRestaurantsResult).data[0])
   );
 }
 
-/**
- * Builds a human-readable restaurant listing from a SearchRestaurantsResult.
- *
- * Example output (4 matches):
- *   Found 4 restaurants matching your request:
- *   • Behrouz Biryani
- *   • Biryani Blues
- *   • Paradise Biryani
- *   • Bikkgane Biryani
- */
+function isMenuResult(value: unknown): value is GetMenuResult {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "success" in value &&
+    "data" in value &&
+    Array.isArray((value as GetMenuResult).data) &&
+    ((value as GetMenuResult).data.length === 0 ||
+      "price" in (value as GetMenuResult).data[0])
+  );
+}
+
+// ── Renderers ──────────────────────────────────────────────────────────────
+
 function renderSearchResult(result: SearchRestaurantsResult): string {
   const count = result.data.length;
-
-  if (count === 0) {
-    return "No restaurants found matching your request.";
-  }
+  if (count === 0) return "No restaurants found matching your request.";
 
   const names = result.data
-    .slice(0, MAX_NAMES)
+    .slice(0, MAX_ITEMS)
     .map((r) => `• ${r.name}`)
     .join("\n");
 
   return `Found ${count} restaurant${count === 1 ? "" : "s"} matching your request:\n${names}`;
 }
 
+function renderMenuResult(result: GetMenuResult): string {
+  const count = result.data.length;
+  if (count === 0) return "No menu items found for this restaurant.";
+
+  const items = result.data
+    .slice(0, MAX_ITEMS)
+    .map((item) => `• ${item.name}`)
+    .join("\n");
+
+  return `Menu contains ${count} item${count === 1 ? "" : "s"}:\n${items}`;
+}
+
+// ── Node ───────────────────────────────────────────────────────────────────
+
 /**
  * Response Node
  *
- * Produces the final response to send back to the client.
+ * Produces the final human-readable response from toolResult.
  *
- * Current behaviour:
- *  - toolResult is a SearchRestaurantsResult → renders count + names (up to 5)
- *  - toolResult is present but unrecognised → "Tool executed successfully."
- *  - toolResult is absent → "LangGraph response pipeline active."
- *
- * Future: replace with an LLM-composed reply using the full tool result.
+ * Priority:
+ *  1. SearchRestaurantsResult → "Found X restaurants…" + names
+ *  2. GetMenuResult           → "Menu contains X items…" + item names
+ *  3. Any other toolResult    → "Tool executed successfully."
+ *  4. No toolResult           → "LangGraph response pipeline active."
  */
 export async function responseNode(state: AgentState): Promise<AgentState> {
   let agentResponse: string;
@@ -61,6 +76,8 @@ export async function responseNode(state: AgentState): Promise<AgentState> {
     agentResponse = "LangGraph response pipeline active.";
   } else if (isSearchResult(state.toolResult)) {
     agentResponse = renderSearchResult(state.toolResult);
+  } else if (isMenuResult(state.toolResult)) {
+    agentResponse = renderMenuResult(state.toolResult);
   } else {
     agentResponse = "Tool executed successfully.";
   }
