@@ -1,4 +1,4 @@
-// LangGraph state definition (type‑only, no runtime logic)
+// LangGraph state definition (type-only, no runtime logic)
 
 /**
  * Shared state passed between future LangGraph nodes.
@@ -15,6 +15,10 @@ export interface AgentState {
   cartId: string | null;
   /** List of tool identifiers that have been invoked */
   toolCalls: string[];
+  /** Tool chosen by the planner node; null means no tool needed */
+  plannedTool: string | null;
+  /** Raw result returned by the executed tool, if any */
+  toolResult: unknown;
 }
 
 /**
@@ -34,5 +38,7 @@ export function createInitialState(
     agentResponse: "",
     cartId: null,
     toolCalls: [],
+    plannedTool: null,
+    toolResult: undefined,
   };
 }
