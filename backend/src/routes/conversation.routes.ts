@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { sessionService } from "../services/SessionService";
+import { agentService } from "../services/AgentService";
 
 export const conversationRouter = Router();
 
-conversationRouter.post("/api/conversation", (req, res, next) => {
+conversationRouter.post("/api/conversation", async (req, res, next) => {
   try {
     const { sessionId, message } = req.body;
 
@@ -32,10 +33,12 @@ conversationRouter.post("/api/conversation", (req, res, next) => {
       return;
     }
 
+    const agentResult = await agentService.handleMessage(sessionId, message);
+
     res.status(200).json({
       success: true,
       data: {
-        response: "Conversation endpoint is active.",
+        response: agentResult.response,
         sessionId: sessionId,
       },
     });
@@ -43,3 +46,4 @@ conversationRouter.post("/api/conversation", (req, res, next) => {
     next(error);
   }
 });
+

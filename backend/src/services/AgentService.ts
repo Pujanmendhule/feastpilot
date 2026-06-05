@@ -1,5 +1,12 @@
-/*
-Purpose: Agent service placeholder.
-TODO: Add LangGraph invocation and output normalization when implementation begins.
-TODO: Keep route handlers independent from graph internals.
-*/
+export class AgentService {
+  async handleMessage(
+    sessionId: string,
+    message: string
+  ): Promise<{ response: string }> {
+    return {
+      response: `Agent service is active. Received: ${message}`,
+    };
+  }
+}
+
+export const agentService = new AgentService();
