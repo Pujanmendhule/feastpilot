@@ -6,17 +6,19 @@ const SEARCH_KEYWORDS = ["restaurant", "food", "biryani", "pizza", "burger"];
 /** Keywords that trigger a menu fetch */
 const MENU_KEYWORDS = ["menu", "show menu", "view menu"];
 
+/** Keywords that trigger adding an item to the cart */
+const CART_KEYWORDS = ["add", "order", "cart"];
+
 /**
  * Planner Node
  *
- * Analyses state.userMessage and sets plannedTool + any required context fields.
+ * Analyses state.userMessage and sets plannedTool + required context fields.
  *
- * Routing rules (keyword-based, no LLM):
- *  - Message contains a MENU_KEYWORD    → plannedTool = "getMenu",          restaurantId = "behrouz_biryani"
- *  - Message contains a SEARCH_KEYWORD  → plannedTool = "searchRestaurants", restaurantId unchanged
- *  - Otherwise                          → plannedTool = null
- *
- * Note: menu check runs before search so "show menu biryani" resolves to getMenu.
+ * Routing rules (priority order, keyword-based, no LLM):
+ *  1. MENU keywords  → plannedTool = "getMenu",          restaurantId = "behrouz_biryani"
+ *  2. CART keywords  → plannedTool = "updateCart",       restaurantId = "behrouz_biryani", menuItemId = "bb_3", quantity = 1
+ *  3. SEARCH keywords→ plannedTool = "searchRestaurants"
+ *  4. Otherwise      → plannedTool = null
  *
  * Future: replace keyword matching with an LLM-based intent classifier.
  */
@@ -28,6 +30,17 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
       ...state,
       plannedTool: "getMenu",
       restaurantId: "behrouz_biryani",
+      toolCalls: [...state.toolCalls, "planner"],
+    };
+  }
+
+  if (CART_KEYWORDS.some((kw) => lowerMessage.includes(kw))) {
+    return {
+      ...state,
+      plannedTool: "updateCart",
+      restaurantId: "behrouz_biryani",
+      menuItemId: "bb_3",
+      quantity: 1,
       toolCalls: [...state.toolCalls, "planner"],
     };
   }

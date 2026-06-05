@@ -1,5 +1,6 @@
 import type { AgentState } from "../state/agentState";
-import { searchRestaurants, getMenu } from "../tools";
+import { searchRestaurants, getMenu, createCart, updateCart } from "../tools";
+import { sessionService } from "../../services/SessionService";
 
 /**
  * Tool Node
@@ -8,10 +9,13 @@ import { searchRestaurants, getMenu } from "../tools";
  *
  * Dispatch table:
  *  - "searchRestaurants" → calls searchRestaurants({ query: userMessage })
- *  - "getMenu"           → calls getMenu({ restaurantId: state.restaurantId })
- *  - anything else / null → no-op, passes state through
+ *  - "getMenu"           → calls getMenu({ restaurantId })
+ *  - "updateCart"        → ensures cart exists, attaches to session, calls updateCart
+ *  - anything else/null  → no-op, passes state through
  */
 export async function toolNode(state: AgentState): Promise<AgentState> {
+
+  // ── searchRestaurants ────────────────────────────────────────────────────
   if (state.plannedTool === "searchRestaurants") {
     const toolResult = await searchRestaurants({ query: state.userMessage });
     return {
@@ -21,6 +25,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
     };
   }
 
+  // ── getMenu ──────────────────────────────────────────────────────────────
   if (state.plannedTool === "getMenu" && state.restaurantId) {
     const toolResult = await getMenu({ restaurantId: state.restaurantId });
     return {
@@ -30,7 +35,43 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
     };
   }
 
-  // No tool planned — pass state through unchanged
+  // ── updateCart ───────────────────────────────────────────────────────────
+  if (
+    state.plannedTool === "updateCart" &&
+    state.restaurantId &&
+    state.menuItemId
+  ) {
+    // 1. Load session and determine active cartId
+    const session = sessionService.getSession(state.sessionId);
+    let cartId = session?.cartId ?? null;
+
+    // 2. Create a new cart if none is attached to the session
+    if (!cartId) {
+      const created = await createCart();
+      cartId = created.data.id;
+      // Attach newly created cart to the session
+      if (session) {
+        sessionService.attachCartToSession(state.sessionId, cartId);
+      }
+    }
+
+    // 3. Add the item to the cart
+    const toolResult = await updateCart({
+      cartId,
+      restaurantId: state.restaurantId,
+      menuItemId: state.menuItemId,
+      quantity: state.quantity,
+    });
+
+    return {
+      ...state,
+      cartId,
+      toolResult,
+      toolCalls: [...state.toolCalls, "updateCart"],
+    };
+  }
+
+  // ── No tool planned ──────────────────────────────────────────────────────
   return {
     ...state,
     toolCalls: [...state.toolCalls, "tool-node"],

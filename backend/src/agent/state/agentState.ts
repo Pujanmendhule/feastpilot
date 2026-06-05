@@ -19,8 +19,12 @@ export interface AgentState {
   plannedTool: string | null;
   /** Raw result returned by the executed tool, if any */
   toolResult: unknown;
-  /** Restaurant ID to fetch menu for; set by planner when getMenu is planned */
+  /** Restaurant ID used for getMenu / updateCart */
   restaurantId: string | null;
+  /** Menu item ID to add to cart */
+  menuItemId: string | null;
+  /** Quantity of the menu item to add */
+  quantity: number;
 }
 
 /**
@@ -39,5 +43,7 @@ export function createInitialState(
     plannedTool: null,
     toolResult: undefined,
     restaurantId: null,
+    menuItemId: null,
+    quantity: 1,
   };
 }
