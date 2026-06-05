@@ -1,5 +1,6 @@
-/*
-Purpose: Agent tool binding placeholder.
-TODO: Bind registered backend tools to the agent when implementation begins.
-TODO: Require every tool interaction to use the standardized ToolResult format.
-*/
+export { searchRestaurants, type SearchRestaurantsInput, type SearchRestaurantsResult } from "../../tools/searchRestaurants.tool";
+export { getRestaurant, type GetRestaurantInput, type GetRestaurantResult } from "../../tools/getRestaurant.tool";
+export { getMenu, type GetMenuInput, type GetMenuResult } from "../../tools/getMenu.tool";
+export { createCart, type CreateCartResult } from "../../tools/createCart.tool";
+export { getCart, type GetCartInput, type GetCartResult } from "../../tools/getCart.tool";
+export { updateCart, type UpdateCartInput, type UpdateCartResult } from "../../tools/updateCart.tool";
