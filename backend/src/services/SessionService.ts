@@ -32,6 +32,15 @@ export class SessionService {
     return this.sessions.get(sessionId);
   }
 
+  attachCartToSession(sessionId: string, cartId: string): Session {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    session.cartId = cartId;
+    return session;
+  }
+
   deleteSession(sessionId: string): boolean {
     return this.sessions.delete(sessionId);
   }

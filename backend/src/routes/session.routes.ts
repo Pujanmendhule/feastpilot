@@ -85,3 +85,47 @@ sessionRouter.delete("/api/sessions/:sessionId", (req, res, next) => {
     next(error);
   }
 });
+
+sessionRouter.post("/api/sessions/:sessionId/cart", (req, res, next) => {
+  try {
+    const sessionId = normalizeSessionId(req.params.sessionId);
+
+    if (!sessionId) {
+      res.status(400).json({
+        success: false,
+        error: "Session ID is required",
+      });
+      return;
+    }
+
+    const { cartId } = req.body;
+
+    if (!cartId || typeof cartId !== "string" || cartId.trim().length === 0) {
+      res.status(400).json({
+        success: false,
+        error: "Cart ID is required",
+      });
+      return;
+    }
+
+    try {
+      const session = sessionService.attachCartToSession(sessionId, cartId);
+      res.json({
+        success: true,
+        data: session,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("Session not found")) {
+        res.status(404).json({
+          success: false,
+          error: error.message,
+        });
+        return;
+      }
+      throw error;
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
