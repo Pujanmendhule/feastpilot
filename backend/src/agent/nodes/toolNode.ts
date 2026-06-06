@@ -10,6 +10,7 @@ import { extractSearchQuery } from "../utils/queryExtractor";
  *
  * Dispatch table:
  *  - "searchRestaurants" → calls searchRestaurants({ query: searchQuery })
+ *  - "selectRestaurant"  → persists user choice from last search results
  *  - "getMenu"           → calls getMenu({ restaurantId })
  *  - "updateCart"        → ensures cart exists, attaches to session, calls updateCart
  *  - anything else/null  → no-op, passes state through
@@ -22,8 +23,14 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
     const toolResult = await searchRestaurants({ query });
 
     if (toolResult.success && toolResult.data.length > 0) {
-      const restaurantId = toolResult.data[0].id;
-      sessionService.setSelectedRestaurant(state.sessionId, restaurantId);
+      sessionService.setLastSearchResults(
+        state.sessionId,
+        toolResult.data.map((restaurant) => ({
+          id: restaurant.id,
+          name: restaurant.name,
+        }))
+      );
+      sessionService.setAwaitingRestaurantSelection(state.sessionId, true);
     }
 
     return {
@@ -31,6 +38,39 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
       searchQuery: query,
       toolResult,
       toolCalls: [...state.toolCalls, "searchRestaurants"],
+    };
+  }
+
+  // ── selectRestaurant ─────────────────────────────────────────────────────
+  if (state.plannedTool === "selectRestaurant") {
+    const candidates = sessionService.getLastSearchResults(state.sessionId);
+    const match = candidates.find(
+      (candidate) => candidate.id === state.restaurantId
+    );
+
+    if (match) {
+      sessionService.setSelectedRestaurant(state.sessionId, match.id);
+      sessionService.setAwaitingRestaurantSelection(state.sessionId, false);
+
+      return {
+        ...state,
+        toolResult: {
+          success: true,
+          data: { id: match.id, name: match.name },
+        },
+        toolCalls: [...state.toolCalls, "selectRestaurant"],
+      };
+    }
+
+    return {
+      ...state,
+      toolResult: {
+        success: false,
+        data: null,
+        error:
+          "Could not match that to a restaurant. Please choose from the list.",
+      },
+      toolCalls: [...state.toolCalls, "selectRestaurant"],
     };
   }
 

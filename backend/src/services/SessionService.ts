@@ -1,4 +1,4 @@
-import type { Session } from "../types/session";
+import type { Session, SessionSearchResult } from "../types/session";
 import { generateSessionId } from "./sessionId";
 
 function createEmptySession(id: string): Session {
@@ -6,6 +6,8 @@ function createEmptySession(id: string): Session {
     id,
     cartId: null,
     selectedRestaurantId: null,
+    awaitingRestaurantSelection: false,
+    lastSearchResults: [],
     messages: [],
     preferences: {},
     assumptions: {},
@@ -57,6 +59,46 @@ export class SessionService {
       throw new Error(`Session not found: ${sessionId}`);
     }
     return session.selectedRestaurantId;
+  }
+
+  setAwaitingRestaurantSelection(
+    sessionId: string,
+    awaiting: boolean
+  ): Session {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    session.awaitingRestaurantSelection = awaiting;
+    return session;
+  }
+
+  isAwaitingRestaurantSelection(sessionId: string): boolean {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    return session.awaitingRestaurantSelection;
+  }
+
+  setLastSearchResults(
+    sessionId: string,
+    results: SessionSearchResult[]
+  ): Session {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    session.lastSearchResults = results;
+    return session;
+  }
+
+  getLastSearchResults(sessionId: string): SessionSearchResult[] {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    return session.lastSearchResults;
   }
 
   deleteSession(sessionId: string): boolean {

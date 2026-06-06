@@ -1,4 +1,5 @@
 import type { AgentState } from "../state/agentState";
+import type { SelectRestaurantResult } from "../types/toolResults";
 import type { SearchRestaurantsResult, GetMenuResult, UpdateCartResult } from "../tools";
 
 const MAX_ITEMS = 5;
@@ -29,6 +30,22 @@ function isMenuResult(value: unknown): value is GetMenuResult {
   );
 }
 
+function isSelectRestaurantResult(
+  value: unknown
+): value is SelectRestaurantResult {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "success" in value &&
+    "data" in value &&
+    ((value as SelectRestaurantResult).data === null ||
+      (typeof (value as SelectRestaurantResult).data === "object" &&
+        (value as SelectRestaurantResult).data !== null &&
+        "id" in (value as SelectRestaurantResult).data! &&
+        "name" in (value as SelectRestaurantResult).data!))
+  );
+}
+
 function isCartResult(value: unknown): value is UpdateCartResult {
   return (
     typeof value === "object" &&
@@ -53,7 +70,18 @@ function renderSearchResult(result: SearchRestaurantsResult): string {
     .map((r) => `• ${r.name}`)
     .join("\n");
 
-  return `Found ${count} restaurant${count === 1 ? "" : "s"} matching your request:\n${names}`;
+  return `Found ${count} restaurant${count === 1 ? "" : "s"}:\n\n${names}\n\nPlease select one.`;
+}
+
+function renderSelectRestaurantResult(result: SelectRestaurantResult): string {
+  if (!result.success || !result.data) {
+    return (
+      result.error ??
+      "Could not match that to a restaurant. Please choose from the list."
+    );
+  }
+
+  return `Selected restaurant:\n\n${result.data.name}\n\nYou can now:\n• show menu\n• add items\n• view cart`;
 }
 
 function renderMenuResult(result: GetMenuResult): string {
@@ -89,10 +117,11 @@ function renderCartResult(result: UpdateCartResult): string {
  *
  * Priority:
  *  1. UpdateCartResult        → "Item added to cart…" + count + subtotal
- *  2. SearchRestaurantsResult → "Found X restaurants…" + names
- *  3. GetMenuResult           → "Menu contains X items…" + names
- *  4. Any other toolResult    → "Tool executed successfully."
- *  5. No toolResult           → "LangGraph response pipeline active."
+ *  2. SelectRestaurantResult  → selection confirmation or retry prompt
+ *  3. SearchRestaurantsResult → "Found X restaurants…" + names + select prompt
+ *  4. GetMenuResult           → "Menu contains X items…" + names
+ *  5. Any other toolResult    → "Tool executed successfully."
+ *  6. No toolResult           → "LangGraph response pipeline active."
  */
 export async function responseNode(state: AgentState): Promise<AgentState> {
   let agentResponse: string;
@@ -101,6 +130,8 @@ export async function responseNode(state: AgentState): Promise<AgentState> {
     agentResponse = "LangGraph response pipeline active.";
   } else if (isCartResult(state.toolResult)) {
     agentResponse = renderCartResult(state.toolResult);
+  } else if (isSelectRestaurantResult(state.toolResult)) {
+    agentResponse = renderSelectRestaurantResult(state.toolResult);
   } else if (isSearchResult(state.toolResult)) {
     agentResponse = renderSearchResult(state.toolResult);
   } else if (isMenuResult(state.toolResult)) {
