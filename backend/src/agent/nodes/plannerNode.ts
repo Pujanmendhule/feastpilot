@@ -1,4 +1,9 @@
 import type { AgentState } from "../state/agentState";
+import {
+  DEFAULT_RESTAURANT_ID,
+  DEFAULT_MENU_ITEM_ID,
+  DEFAULT_QUANTITY,
+} from "../constants";
 
 /** Keywords that trigger a restaurant search */
 const SEARCH_KEYWORDS = ["restaurant", "food", "biryani", "pizza", "burger"];
@@ -15,8 +20,8 @@ const CART_KEYWORDS = ["add", "order", "cart"];
  * Analyses state.userMessage and sets plannedTool + required context fields.
  *
  * Routing rules (priority order, keyword-based, no LLM):
- *  1. MENU keywords  → plannedTool = "getMenu",          restaurantId = "behrouz_biryani"
- *  2. CART keywords  → plannedTool = "updateCart",       restaurantId = "behrouz_biryani", menuItemId = "bb_3", quantity = 1
+ *  1. MENU keywords  → plannedTool = "getMenu",          restaurantId = DEFAULT_RESTAURANT_ID
+ *  2. CART keywords  → plannedTool = "updateCart",       restaurantId = DEFAULT_RESTAURANT_ID, menuItemId = DEFAULT_MENU_ITEM_ID, quantity = DEFAULT_QUANTITY
  *  3. SEARCH keywords→ plannedTool = "searchRestaurants"
  *  4. Otherwise      → plannedTool = null
  *
@@ -29,7 +34,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     return {
       ...state,
       plannedTool: "getMenu",
-      restaurantId: "behrouz_biryani",
+      restaurantId: DEFAULT_RESTAURANT_ID,
       toolCalls: [...state.toolCalls, "planner"],
     };
   }
@@ -38,9 +43,9 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     return {
       ...state,
       plannedTool: "updateCart",
-      restaurantId: "behrouz_biryani",
-      menuItemId: "bb_3",
-      quantity: 1,
+      restaurantId: DEFAULT_RESTAURANT_ID,
+      menuItemId: DEFAULT_MENU_ITEM_ID,
+      quantity: DEFAULT_QUANTITY,
       toolCalls: [...state.toolCalls, "planner"],
     };
   }

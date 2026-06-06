@@ -18,6 +18,12 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
   // ── searchRestaurants ────────────────────────────────────────────────────
   if (state.plannedTool === "searchRestaurants") {
     const toolResult = await searchRestaurants({ query: state.userMessage });
+
+    if (toolResult.success && toolResult.data.length > 0) {
+      const restaurantId = toolResult.data[0].id;
+      sessionService.setSelectedRestaurant(state.sessionId, restaurantId);
+    }
+
     return {
       ...state,
       toolResult,

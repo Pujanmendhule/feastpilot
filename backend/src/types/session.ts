@@ -12,6 +12,8 @@ export type SessionAssumptions = Record<string, unknown>;
 export interface Session {
   id: string;
   cartId: string | null;
+  /** Restaurant chosen during conversation; null until a search selects one. */
+  selectedRestaurantId: string | null;
   messages: SessionMessage[];
   preferences: SessionPreferences;
   assumptions: SessionAssumptions;

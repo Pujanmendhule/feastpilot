@@ -1,3 +1,5 @@
+import { DEFAULT_QUANTITY } from "../constants";
+
 // LangGraph state definition (type-only, no runtime logic)
 
 /**
@@ -44,6 +46,6 @@ export function createInitialState(
     toolResult: undefined,
     restaurantId: null,
     menuItemId: null,
-    quantity: 1,
+    quantity: DEFAULT_QUANTITY,
   };
 }

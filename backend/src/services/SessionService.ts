@@ -5,6 +5,7 @@ function createEmptySession(id: string): Session {
   return {
     id,
     cartId: null,
+    selectedRestaurantId: null,
     messages: [],
     preferences: {},
     assumptions: {},
@@ -39,6 +40,23 @@ export class SessionService {
     }
     session.cartId = cartId;
     return session;
+  }
+
+  setSelectedRestaurant(sessionId: string, restaurantId: string): Session {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    session.selectedRestaurantId = restaurantId;
+    return session;
+  }
+
+  getSelectedRestaurant(sessionId: string): string | null {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    return session.selectedRestaurantId;
   }
 
   deleteSession(sessionId: string): boolean {
