@@ -1,6 +1,7 @@
 import type { AgentState } from "../state/agentState";
 import { searchRestaurants, getMenu, createCart, updateCart } from "../tools";
 import { sessionService } from "../../services/SessionService";
+import { extractSearchQuery } from "../utils/queryExtractor";
 
 /**
  * Tool Node
@@ -8,7 +9,7 @@ import { sessionService } from "../../services/SessionService";
  * Executes the tool chosen by the Planner Node.
  *
  * Dispatch table:
- *  - "searchRestaurants" → calls searchRestaurants({ query: userMessage })
+ *  - "searchRestaurants" → calls searchRestaurants({ query: searchQuery })
  *  - "getMenu"           → calls getMenu({ restaurantId })
  *  - "updateCart"        → ensures cart exists, attaches to session, calls updateCart
  *  - anything else/null  → no-op, passes state through
@@ -17,7 +18,8 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
 
   // ── searchRestaurants ────────────────────────────────────────────────────
   if (state.plannedTool === "searchRestaurants") {
-    const toolResult = await searchRestaurants({ query: state.userMessage });
+    const query = state.searchQuery ?? extractSearchQuery(state.userMessage);
+    const toolResult = await searchRestaurants({ query });
 
     if (toolResult.success && toolResult.data.length > 0) {
       const restaurantId = toolResult.data[0].id;
@@ -26,6 +28,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
 
     return {
       ...state,
+      searchQuery: query,
       toolResult,
       toolCalls: [...state.toolCalls, "searchRestaurants"],
     };

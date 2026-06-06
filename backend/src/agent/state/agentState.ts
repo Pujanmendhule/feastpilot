@@ -27,6 +27,8 @@ export interface AgentState {
   menuItemId: string | null;
   /** Quantity of the menu item to add */
   quantity: number;
+  /** Extracted search terms when plannedTool is searchRestaurants */
+  searchQuery: string | null;
 }
 
 /**
@@ -47,5 +49,6 @@ export function createInitialState(
     restaurantId: null,
     menuItemId: null,
     quantity: DEFAULT_QUANTITY,
+    searchQuery: null,
   };
 }

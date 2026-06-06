@@ -4,6 +4,7 @@ import {
   DEFAULT_MENU_ITEM_ID,
   DEFAULT_QUANTITY,
 } from "../constants";
+import { extractSearchQuery } from "../utils/queryExtractor";
 
 /** Keywords that trigger a restaurant search */
 const SEARCH_KEYWORDS = ["restaurant", "food", "biryani", "pizza", "burger"];
@@ -54,6 +55,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     return {
       ...state,
       plannedTool: "searchRestaurants",
+      searchQuery: extractSearchQuery(state.userMessage),
       toolCalls: [...state.toolCalls, "planner"],
     };
   }
