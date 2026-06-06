@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "ts-node src/server/index.ts",
     "build": "tsc",
-    "start": "node dist/server/index.js"
+    "start": "node dist/server/index.js",
+    "test:integration": "ts-node src/dev/runIntegrationTests.ts",
+    "test:model": "ts-node src/dev/runModelServiceTests.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

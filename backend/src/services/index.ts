@@ -1,5 +1,4 @@
-/*
-Purpose: Backend service export placeholder.
-TODO: Export session, mock data, cart, agent, voice, and model services.
-TODO: Keep services behind route and tool interfaces.
-*/
+export { sessionService } from "./SessionService";
+export { cartService } from "./CartService";
+export { agentService } from "./AgentService";
+export { modelService } from "./models/ModelService";
