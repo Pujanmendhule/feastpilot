@@ -188,7 +188,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
   }
 
   // ── addToCart ────────────────────────────────────────────────────────────
-  if (state.plannedTool === "addToCart" && state.restaurantId) {
+  if ((state.plannedTool === "addToCart" || state.plannedTool === "updateCart") && state.restaurantId) {
     const action = state.cartAction === "addAnother" ? "addAnother" : "add";
     const resolved = await resolveMenuItemForCart(state);
 
@@ -196,7 +196,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
       return {
         ...state,
         toolResult: resolved.result,
-        toolCalls: [...state.toolCalls, "addToCart"],
+        toolCalls: [...state.toolCalls, state.plannedTool!],
       };
     }
 
@@ -215,7 +215,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
           action,
           cartResult.error ?? "Failed to add item"
         ),
-        toolCalls: [...state.toolCalls, "addToCart"],
+        toolCalls: [...state.toolCalls, state.plannedTool!],
       };
     }
 
@@ -231,7 +231,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
         itemName: resolved.itemName,
         quantity: state.quantity,
       },
-      toolCalls: [...state.toolCalls, "addToCart"],
+      toolCalls: [...state.toolCalls, state.plannedTool!],
     };
   }
 
@@ -291,14 +291,14 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
   }
 
   // ── setCartQuantity ──────────────────────────────────────────────────────
-  if (state.plannedTool === "setCartQuantity" && state.restaurantId) {
+  if ((state.plannedTool === "setCartQuantity" || state.plannedTool === "setCartItemQuantity") && state.restaurantId) {
     const resolved = await resolveMenuItemForCart(state);
 
     if (!resolved.ok) {
       return {
         ...state,
         toolResult: resolved.result,
-        toolCalls: [...state.toolCalls, "setCartQuantity"],
+        toolCalls: [...state.toolCalls, state.plannedTool!],
       };
     }
 
@@ -312,7 +312,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
           "setQuantity",
           `${resolved.itemName} is not in your cart.`
         ),
-        toolCalls: [...state.toolCalls, "setCartQuantity"],
+        toolCalls: [...state.toolCalls, state.plannedTool!],
       };
     }
 
@@ -330,7 +330,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
           "setQuantity",
           cartResult.error ?? "Failed to update quantity"
         ),
-        toolCalls: [...state.toolCalls, "setCartQuantity"],
+        toolCalls: [...state.toolCalls, state.plannedTool!],
       };
     }
 
@@ -346,7 +346,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
         itemName: resolved.itemName,
         quantity: state.quantity,
       },
-      toolCalls: [...state.toolCalls, "setCartQuantity"],
+      toolCalls: [...state.toolCalls, state.plannedTool!],
     };
   }
 
