@@ -94,6 +94,76 @@ export class CartService {
 
     return cart;
   }
+
+  setItemQuantity(
+    cartId: string,
+    restaurantId: string,
+    menuItemId: string,
+    quantity: number
+  ): Cart {
+    const cart = this.carts.get(cartId);
+    if (!cart) {
+      throw new Error("Cart not found");
+    }
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      throw new Error("Quantity must be greater than zero");
+    }
+
+    const existingIndex = findCartLineIndex(
+      cart.items,
+      restaurantId,
+      menuItemId
+    );
+
+    if (existingIndex < 0) {
+      throw new Error("Item not in cart");
+    }
+
+    cart.items[existingIndex].quantity = quantity;
+    cart.subtotal = recalculateSubtotal(cart.items);
+    this.carts.set(cart.id, cart);
+
+    return cart;
+  }
+
+  removeItem(
+    cartId: string,
+    restaurantId: string,
+    menuItemId: string
+  ): Cart {
+    const cart = this.carts.get(cartId);
+    if (!cart) {
+      throw new Error("Cart not found");
+    }
+
+    const beforeCount = cart.items.length;
+    cart.items = cart.items.filter(
+      (item) =>
+        !(
+          item.restaurantId === restaurantId &&
+          item.menuItemId === menuItemId
+        )
+    );
+
+    if (cart.items.length === beforeCount) {
+      throw new Error("Item not in cart");
+    }
+
+    const stillHasRestaurant = cart.items.some(
+      (item) => item.restaurantId === restaurantId
+    );
+    if (!stillHasRestaurant) {
+      cart.restaurants = cart.restaurants.filter(
+        (id) => id !== restaurantId
+      );
+    }
+
+    cart.subtotal = recalculateSubtotal(cart.items);
+    this.carts.set(cart.id, cart);
+
+    return cart;
+  }
 }
 
 /** Shared in-memory cart store for tools and routes. */

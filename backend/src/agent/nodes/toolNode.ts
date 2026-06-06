@@ -1,19 +1,73 @@
 import type { AgentState } from "../state/agentState";
-import { searchRestaurants, getMenu, createCart, updateCart } from "../tools";
+import type { CartOperationResult } from "../types/toolResults";
+import {
+  searchRestaurants,
+  getMenu,
+  getCart,
+  updateCart,
+  removeFromCart,
+  setCartItemQuantity,
+} from "../tools";
 import { sessionService } from "../../services/SessionService";
 import { extractSearchQuery } from "../utils/queryExtractor";
+import { matchMenuItem } from "../utils/menuItemMatcher";
+import { resolveMenuCandidates } from "../utils/menuResolver";
+import { ensureSessionCart } from "../utils/ensureSessionCart";
+
+function buildCartError(
+  action: CartOperationResult["action"],
+  error: string
+): CartOperationResult {
+  return {
+    success: false,
+    action,
+    data: null,
+    error,
+  };
+}
+
+async function resolveMenuItemForCart(
+  state: AgentState
+): Promise<
+  | { ok: true; menuItemId: string; itemName: string }
+  | { ok: false; result: CartOperationResult }
+> {
+  const action = state.cartAction ?? "add";
+
+  if (!state.restaurantId || !state.menuItemQuery) {
+    return {
+      ok: false,
+      result: buildCartError(action, "Menu item could not be determined."),
+    };
+  }
+
+  const candidates = await resolveMenuCandidates(
+    state.sessionId,
+    state.restaurantId
+  );
+  const match = matchMenuItem(state.menuItemQuery, candidates);
+
+  if (!match) {
+    return {
+      ok: false,
+      result: buildCartError(
+        action,
+        `Could not find "${state.menuItemQuery}" on the menu. Try "show menu" first.`
+      ),
+    };
+  }
+
+  return {
+    ok: true,
+    menuItemId: match.id,
+    itemName: match.name,
+  };
+}
 
 /**
  * Tool Node
  *
  * Executes the tool chosen by the Planner Node.
- *
- * Dispatch table:
- *  - "searchRestaurants" → calls searchRestaurants({ query: searchQuery })
- *  - "selectRestaurant"  → persists user choice from last search results
- *  - "getMenu"           → calls getMenu({ restaurantId })
- *  - "updateCart"        → ensures cart exists, attaches to session, calls updateCart
- *  - anything else/null  → no-op, passes state through
  */
 export async function toolNode(state: AgentState): Promise<AgentState> {
 
@@ -77,6 +131,18 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
   // ── getMenu ──────────────────────────────────────────────────────────────
   if (state.plannedTool === "getMenu" && state.restaurantId) {
     const toolResult = await getMenu({ restaurantId: state.restaurantId });
+
+    if (toolResult.success && toolResult.data.length > 0) {
+      sessionService.setLastViewedMenuItems(
+        state.sessionId,
+        toolResult.data.map((item) => ({
+          id: item.id,
+          name: item.name,
+          restaurantId: state.restaurantId!,
+        }))
+      );
+    }
+
     return {
       ...state,
       toolResult,
@@ -84,39 +150,203 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
     };
   }
 
-  // ── updateCart ───────────────────────────────────────────────────────────
-  if (
-    state.plannedTool === "updateCart" &&
-    state.restaurantId &&
-    state.menuItemId
-  ) {
-    // 1. Load session and determine active cartId
+  // ── getCart ──────────────────────────────────────────────────────────────
+  if (state.plannedTool === "getCart") {
     const session = sessionService.getSession(state.sessionId);
-    let cartId = session?.cartId ?? null;
+    const cartId = session?.cartId ?? null;
 
-    // 2. Create a new cart if none is attached to the session
     if (!cartId) {
-      const created = await createCart();
-      cartId = created.data.id;
-      // Attach newly created cart to the session
-      if (session) {
-        sessionService.attachCartToSession(state.sessionId, cartId);
-      }
+      return {
+        ...state,
+        toolResult: buildCartError("view", "Your cart is empty."),
+        toolCalls: [...state.toolCalls, "getCart"],
+      };
     }
 
-    // 3. Add the item to the cart
-    const toolResult = await updateCart({
-      cartId,
-      restaurantId: state.restaurantId,
-      menuItemId: state.menuItemId,
-      quantity: state.quantity,
-    });
+    const cartResult = await getCart({ cartId });
+    if (!cartResult.success || !cartResult.data) {
+      return {
+        ...state,
+        toolResult: buildCartError(
+          "view",
+          cartResult.error ?? "Failed to load cart"
+        ),
+        toolCalls: [...state.toolCalls, "getCart"],
+      };
+    }
 
     return {
       ...state,
       cartId,
-      toolResult,
-      toolCalls: [...state.toolCalls, "updateCart"],
+      toolResult: {
+        success: true,
+        action: "view",
+        data: cartResult.data,
+      },
+      toolCalls: [...state.toolCalls, "getCart"],
+    };
+  }
+
+  // ── addToCart ────────────────────────────────────────────────────────────
+  if (state.plannedTool === "addToCart" && state.restaurantId) {
+    const action = state.cartAction === "addAnother" ? "addAnother" : "add";
+    const resolved = await resolveMenuItemForCart(state);
+
+    if (!resolved.ok) {
+      return {
+        ...state,
+        toolResult: resolved.result,
+        toolCalls: [...state.toolCalls, "addToCart"],
+      };
+    }
+
+    const cartId = await ensureSessionCart(state.sessionId);
+    const cartResult = await updateCart({
+      cartId,
+      restaurantId: state.restaurantId,
+      menuItemId: resolved.menuItemId,
+      quantity: state.quantity,
+    });
+
+    if (!cartResult.success || !cartResult.data) {
+      return {
+        ...state,
+        toolResult: buildCartError(
+          action,
+          cartResult.error ?? "Failed to add item"
+        ),
+        toolCalls: [...state.toolCalls, "addToCart"],
+      };
+    }
+
+    return {
+      ...state,
+      cartId,
+      menuItemId: resolved.menuItemId,
+      resolvedMenuItemName: resolved.itemName,
+      toolResult: {
+        success: true,
+        action,
+        data: cartResult.data,
+        itemName: resolved.itemName,
+        quantity: state.quantity,
+      },
+      toolCalls: [...state.toolCalls, "addToCart"],
+    };
+  }
+
+  // ── removeFromCart ───────────────────────────────────────────────────────
+  if (state.plannedTool === "removeFromCart" && state.restaurantId) {
+    const resolved = await resolveMenuItemForCart(state);
+
+    if (!resolved.ok) {
+      return {
+        ...state,
+        toolResult: resolved.result,
+        toolCalls: [...state.toolCalls, "removeFromCart"],
+      };
+    }
+
+    const session = sessionService.getSession(state.sessionId);
+    const cartId = session?.cartId ?? null;
+
+    if (!cartId) {
+      return {
+        ...state,
+        toolResult: buildCartError("remove", "Your cart is empty."),
+        toolCalls: [...state.toolCalls, "removeFromCart"],
+      };
+    }
+
+    const cartResult = await removeFromCart({
+      cartId,
+      restaurantId: state.restaurantId,
+      menuItemId: resolved.menuItemId,
+    });
+
+    if (!cartResult.success || !cartResult.data) {
+      return {
+        ...state,
+        toolResult: buildCartError(
+          "remove",
+          cartResult.error ?? "Failed to remove item"
+        ),
+        toolCalls: [...state.toolCalls, "removeFromCart"],
+      };
+    }
+
+    return {
+      ...state,
+      cartId,
+      menuItemId: resolved.menuItemId,
+      resolvedMenuItemName: resolved.itemName,
+      toolResult: {
+        success: true,
+        action: "remove",
+        data: cartResult.data,
+        itemName: resolved.itemName,
+      },
+      toolCalls: [...state.toolCalls, "removeFromCart"],
+    };
+  }
+
+  // ── setCartQuantity ──────────────────────────────────────────────────────
+  if (state.plannedTool === "setCartQuantity" && state.restaurantId) {
+    const resolved = await resolveMenuItemForCart(state);
+
+    if (!resolved.ok) {
+      return {
+        ...state,
+        toolResult: resolved.result,
+        toolCalls: [...state.toolCalls, "setCartQuantity"],
+      };
+    }
+
+    const session = sessionService.getSession(state.sessionId);
+    const cartId = session?.cartId ?? null;
+
+    if (!cartId) {
+      return {
+        ...state,
+        toolResult: buildCartError(
+          "setQuantity",
+          `${resolved.itemName} is not in your cart.`
+        ),
+        toolCalls: [...state.toolCalls, "setCartQuantity"],
+      };
+    }
+
+    const cartResult = await setCartItemQuantity({
+      cartId,
+      restaurantId: state.restaurantId,
+      menuItemId: resolved.menuItemId,
+      quantity: state.quantity,
+    });
+
+    if (!cartResult.success || !cartResult.data) {
+      return {
+        ...state,
+        toolResult: buildCartError(
+          "setQuantity",
+          cartResult.error ?? "Failed to update quantity"
+        ),
+        toolCalls: [...state.toolCalls, "setCartQuantity"],
+      };
+    }
+
+    return {
+      ...state,
+      cartId,
+      menuItemId: resolved.menuItemId,
+      resolvedMenuItemName: resolved.itemName,
+      toolResult: {
+        success: true,
+        action: "setQuantity",
+        data: cartResult.data,
+        itemName: resolved.itemName,
+        quantity: state.quantity,
+      },
+      toolCalls: [...state.toolCalls, "setCartQuantity"],
     };
   }
 

@@ -1,4 +1,8 @@
-import type { Session, SessionSearchResult } from "../types/session";
+import type {
+  Session,
+  SessionSearchResult,
+  SessionMenuItem,
+} from "../types/session";
 import { generateSessionId } from "./sessionId";
 
 function createEmptySession(id: string): Session {
@@ -8,6 +12,7 @@ function createEmptySession(id: string): Session {
     selectedRestaurantId: null,
     awaitingRestaurantSelection: false,
     lastSearchResults: [],
+    lastViewedMenuItems: [],
     messages: [],
     preferences: {},
     assumptions: {},
@@ -99,6 +104,26 @@ export class SessionService {
       throw new Error(`Session not found: ${sessionId}`);
     }
     return session.lastSearchResults;
+  }
+
+  setLastViewedMenuItems(
+    sessionId: string,
+    items: SessionMenuItem[]
+  ): Session {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    session.lastViewedMenuItems = items;
+    return session;
+  }
+
+  getLastViewedMenuItems(sessionId: string): SessionMenuItem[] {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    return session.lastViewedMenuItems;
   }
 
   deleteSession(sessionId: string): boolean {

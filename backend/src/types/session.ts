@@ -15,6 +15,13 @@ export interface SessionSearchResult {
   name: string;
 }
 
+/** Minimal menu item snapshot for cart matching without repeated lookups. */
+export interface SessionMenuItem {
+  id: string;
+  name: string;
+  restaurantId: string;
+}
+
 export interface Session {
   id: string;
   cartId: string | null;
@@ -24,6 +31,8 @@ export interface Session {
   awaitingRestaurantSelection: boolean;
   /** Restaurants from the most recent search, used for selection matching. */
   lastSearchResults: SessionSearchResult[];
+  /** Menu items from the most recent menu view or fetch for this session. */
+  lastViewedMenuItems: SessionMenuItem[];
   messages: SessionMessage[];
   preferences: SessionPreferences;
   assumptions: SessionAssumptions;

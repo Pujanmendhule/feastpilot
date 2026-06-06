@@ -1,4 +1,5 @@
 import { DEFAULT_QUANTITY } from "../constants";
+import type { CartAction } from "../types/toolResults";
 
 // LangGraph state definition (type-only, no runtime logic)
 
@@ -29,6 +30,12 @@ export interface AgentState {
   quantity: number;
   /** Extracted search terms when plannedTool is searchRestaurants */
   searchQuery: string | null;
+  /** Cart operation type when a cart tool is planned */
+  cartAction: CartAction | null;
+  /** Natural-language menu item query for cart operations */
+  menuItemQuery: string | null;
+  /** Resolved menu item display name for responses */
+  resolvedMenuItemName: string | null;
 }
 
 /**
@@ -50,5 +57,8 @@ export function createInitialState(
     menuItemId: null,
     quantity: DEFAULT_QUANTITY,
     searchQuery: null,
+    cartAction: null,
+    menuItemQuery: null,
+    resolvedMenuItemName: null,
   };
 }

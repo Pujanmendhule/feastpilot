@@ -4,3 +4,5 @@ export { getMenu, type GetMenuInput, type GetMenuResult } from "../../tools/getM
 export { createCart, type CreateCartResult } from "../../tools/createCart.tool";
 export { getCart, type GetCartInput, type GetCartResult } from "../../tools/getCart.tool";
 export { updateCart, type UpdateCartInput, type UpdateCartResult } from "../../tools/updateCart.tool";
+export { removeFromCart, type RemoveFromCartInput, type RemoveFromCartResult } from "../../tools/removeFromCart.tool";
+export { setCartItemQuantity, type SetCartItemQuantityInput, type SetCartItemQuantityResult } from "../../tools/setCartItemQuantity.tool";

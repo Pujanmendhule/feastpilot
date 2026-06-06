@@ -1,6 +1,10 @@
 import type { AgentState } from "../state/agentState";
-import type { SelectRestaurantResult } from "../types/toolResults";
-import type { SearchRestaurantsResult, GetMenuResult, UpdateCartResult } from "../tools";
+import type {
+  SelectRestaurantResult,
+  CartOperationResult,
+} from "../types/toolResults";
+import type { SearchRestaurantsResult, GetMenuResult } from "../tools";
+import { formatCartSummary } from "../utils/cartRenderer";
 
 const MAX_ITEMS = 5;
 
@@ -46,16 +50,15 @@ function isSelectRestaurantResult(
   );
 }
 
-function isCartResult(value: unknown): value is UpdateCartResult {
+function isCartOperationResult(
+  value: unknown
+): value is CartOperationResult {
   return (
     typeof value === "object" &&
     value !== null &&
     "success" in value &&
-    "data" in value &&
-    (value as UpdateCartResult).data !== null &&
-    typeof (value as UpdateCartResult).data === "object" &&
-    "items" in ((value as UpdateCartResult).data as object) &&
-    "subtotal" in ((value as UpdateCartResult).data as object)
+    "action" in value &&
+    "data" in value
   );
 }
 
@@ -96,16 +99,35 @@ function renderMenuResult(result: GetMenuResult): string {
   return `Menu contains ${count} item${count === 1 ? "" : "s"}:\n${items}`;
 }
 
-function renderCartResult(result: UpdateCartResult): string {
+function renderCartOperationResult(result: CartOperationResult): string {
   if (!result.success || !result.data) {
-    return `Failed to update cart: ${result.error ?? "unknown error"}`;
+    return result.error ?? "Cart operation failed.";
   }
 
-  const cart = result.data;
-  const itemCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = cart.subtotal;
+  if (result.action === "view") {
+    if (result.data.items.length === 0) {
+      return "Your cart is empty.";
+    }
 
-  return `Item added to cart successfully.\n\nItems: ${itemCount}\nSubtotal: ₹${subtotal}`;
+    return formatCartSummary(result.data).replace(
+      "Your cart:",
+      "Your cart contains:"
+    );
+  }
+
+  if (result.action === "add" || result.action === "addAnother") {
+    return `Added ${result.itemName}.\n\nCart subtotal: ₹${result.data.subtotal}`;
+  }
+
+  if (result.action === "remove") {
+    return `Removed ${result.itemName}.\n\nSubtotal: ₹${result.data.subtotal}`;
+  }
+
+  if (result.action === "setQuantity") {
+    return `Updated ${result.itemName} quantity to ${result.quantity}.\n\nSubtotal: ₹${result.data.subtotal}`;
+  }
+
+  return formatCartSummary(result.data);
 }
 
 // ── Node ───────────────────────────────────────────────────────────────────
@@ -114,22 +136,14 @@ function renderCartResult(result: UpdateCartResult): string {
  * Response Node
  *
  * Produces the final human-readable response from toolResult.
- *
- * Priority:
- *  1. UpdateCartResult        → "Item added to cart…" + count + subtotal
- *  2. SelectRestaurantResult  → selection confirmation or retry prompt
- *  3. SearchRestaurantsResult → "Found X restaurants…" + names + select prompt
- *  4. GetMenuResult           → "Menu contains X items…" + names
- *  5. Any other toolResult    → "Tool executed successfully."
- *  6. No toolResult           → "LangGraph response pipeline active."
  */
 export async function responseNode(state: AgentState): Promise<AgentState> {
   let agentResponse: string;
 
   if (state.toolResult === undefined) {
     agentResponse = "LangGraph response pipeline active.";
-  } else if (isCartResult(state.toolResult)) {
-    agentResponse = renderCartResult(state.toolResult);
+  } else if (isCartOperationResult(state.toolResult)) {
+    agentResponse = renderCartOperationResult(state.toolResult);
   } else if (isSelectRestaurantResult(state.toolResult)) {
     agentResponse = renderSelectRestaurantResult(state.toolResult);
   } else if (isSearchResult(state.toolResult)) {
