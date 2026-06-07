@@ -23,7 +23,7 @@ function resolveRestaurantId(sessionId: string): string {
 }
 
 /**
- * Log planner decision with intent, confidence, and extracted entities.
+ * Log planner decision with intent, confidence, extracted entities, and source.
  * Only called when ModelService succeeds.
  */
 function logPlannerDecision(
@@ -31,6 +31,7 @@ function logPlannerDecision(
   entities: EntityExtractionResult
 ): void {
   console.log(`[Planner] Provider  : ${modelService.getProviderType()}`);
+  console.log(`[Planner] Source    : azure`);
   console.log(`[Planner] Intent    : ${intent.intent}`);
   console.log(`[Planner] Confidence: ${intent.confidence.toFixed(2)}`);
   console.log(
@@ -173,7 +174,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     intentResult = await modelService.classifyIntent(state.userMessage);
   } catch (error) {
     console.warn(
-      `[Planner] classifyIntent failed (${modelService.getProviderType()}), falling back to keywords:`,
+      `[Planner] Source    : legacy-fallback (classifyIntent failed — ${modelService.getProviderType()})`,
       error
     );
     return fallbackKeywordPlanner(state);
@@ -185,9 +186,8 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     intentResult.confidence < CONFIDENCE_THRESHOLD
   ) {
     console.log(
-      `[Planner] Low-confidence or unknown intent ` +
-      `(intent=${intentResult.intent}, confidence=${intentResult.confidence.toFixed(2)}). ` +
-      `Using keyword fallback.`
+      `[Planner] Source    : legacy-fallback ` +
+      `(intent=${intentResult.intent}, confidence=${intentResult.confidence.toFixed(2)} < ${CONFIDENCE_THRESHOLD})`
     );
     return fallbackKeywordPlanner(state);
   }
@@ -209,6 +209,13 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
 
   logPlannerDecision(intentResult, entities);
 
+  // ── Shared state enrichment from model ────────────────────────────────────
+  // These fields are available to responseNode and future graph nodes.
+  const modelState = {
+    intent: intentResult.intent,
+    intentConfidence: intentResult.confidence,
+  };
+
   const restaurantId = resolveRestaurantId(state.sessionId);
 
   // ── Intent → Tool mapping ──────────────────────────────────────────────────
@@ -218,6 +225,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     case "show_menu":
       return {
         ...state,
+        ...modelState,
         plannedTool: "getMenu",
         restaurantId,
         toolCalls: [...state.toolCalls, "planner"],
@@ -230,6 +238,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
         entities.searchQuery ?? extractSearchQuery(state.userMessage);
       return {
         ...state,
+        ...modelState,
         plannedTool: "searchRestaurants",
         searchQuery,
         toolCalls: [...state.toolCalls, "planner"],
@@ -244,6 +253,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
       const match = matchRestaurantSelection(nameHint, candidates);
       return {
         ...state,
+        ...modelState,
         plannedTool: "selectRestaurant",
         restaurantId: match?.id ?? null,
         toolCalls: [...state.toolCalls, "planner"],
@@ -254,15 +264,21 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     case "add_to_cart": {
       // Primary entities from Azure; fall back to legacy cart parser for item/qty.
       const cartIntent = !entities.item ? parseCartIntent(state.userMessage) : null;
-      const menuItemQuery = entities.item ?? cartIntent?.itemQuery ?? null;
+      // Narrow away variants that lack itemQuery ('view') or quantity ('view'/'remove').
+      const addCartFallback =
+        cartIntent && cartIntent.type !== "view" && cartIntent.type !== "remove"
+          ? cartIntent
+          : null;
+      const menuItemQuery = entities.item ?? addCartFallback?.itemQuery ?? null;
       const quantity =
         entities.quantity ??
-        cartIntent?.quantity ??
+        addCartFallback?.quantity ??
         state.quantity ??
         DEFAULT_QUANTITY;
 
       return {
         ...state,
+        ...modelState,
         plannedTool: "updateCart",
         restaurantId,
         cartAction: "add",
@@ -275,15 +291,20 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     // ── add_another ───────────────────────────────────────────────────────────
     case "add_another": {
       const cartIntent = !entities.item ? parseCartIntent(state.userMessage) : null;
-      const menuItemQuery = entities.item ?? cartIntent?.itemQuery ?? null;
+      const addAnotherFallback =
+        cartIntent && cartIntent.type !== "view" && cartIntent.type !== "remove"
+          ? cartIntent
+          : null;
+      const menuItemQuery = entities.item ?? addAnotherFallback?.itemQuery ?? null;
       const quantity =
         entities.quantity ??
-        cartIntent?.quantity ??
+        addAnotherFallback?.quantity ??
         state.quantity ??
         DEFAULT_QUANTITY;
 
       return {
         ...state,
+        ...modelState,
         plannedTool: "updateCart",
         restaurantId,
         cartAction: "addAnother",
@@ -296,10 +317,12 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     // ── remove_item ───────────────────────────────────────────────────────────
     case "remove_item": {
       const cartIntent = !entities.item ? parseCartIntent(state.userMessage) : null;
-      const menuItemQuery = entities.item ?? cartIntent?.itemQuery ?? null;
+      const removeFallback = cartIntent?.type !== "view" ? cartIntent : null;
+      const menuItemQuery = entities.item ?? removeFallback?.itemQuery ?? null;
 
       return {
         ...state,
+        ...modelState,
         plannedTool: "removeFromCart",
         restaurantId,
         cartAction: "remove",
@@ -312,6 +335,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     case "view_cart":
       return {
         ...state,
+        ...modelState,
         plannedTool: "getCart",
         restaurantId,
         cartAction: "view",
@@ -321,15 +345,20 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     // ── set_quantity ──────────────────────────────────────────────────────────
     case "set_quantity": {
       const cartIntent = !entities.item ? parseCartIntent(state.userMessage) : null;
-      const menuItemQuery = entities.item ?? cartIntent?.itemQuery ?? null;
+      const setQtyFallback =
+        cartIntent && cartIntent.type !== "view" && cartIntent.type !== "remove"
+          ? cartIntent
+          : null;
+      const menuItemQuery = entities.item ?? setQtyFallback?.itemQuery ?? null;
       const quantity =
         entities.quantity ??
-        cartIntent?.quantity ??
+        setQtyFallback?.quantity ??
         state.quantity ??
         DEFAULT_QUANTITY;
 
       return {
         ...state,
+        ...modelState,
         plannedTool: "setCartItemQuantity",
         restaurantId,
         cartAction: "setQuantity",

@@ -36,6 +36,18 @@ export interface AgentState {
   menuItemQuery: string | null;
   /** Resolved menu item display name for responses */
   resolvedMenuItemName: string | null;
+  /**
+   * Classified intent produced by ModelService (Azure or fallback).
+   * Populated by the planner node; undefined when the legacy keyword
+   * planner is used.
+   */
+  intent?: string;
+  /**
+   * Confidence score [0, 1] returned by the model provider.
+   * Populated by the planner node; undefined when the legacy keyword
+   * planner is used (which always returns confidence=1 from MockProvider).
+   */
+  intentConfidence?: number;
 }
 
 /**
@@ -60,5 +72,7 @@ export function createInitialState(
     cartAction: null,
     menuItemQuery: null,
     resolvedMenuItemName: null,
+    intent: undefined,
+    intentConfidence: undefined,
   };
 }

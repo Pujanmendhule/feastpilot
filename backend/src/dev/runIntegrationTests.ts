@@ -2,9 +2,15 @@
  * End-to-end integration tests for the FeastPilot conversational ordering workflow.
  *
  * Uses real AgentService, SessionService, CartService, and agent nodes — no mocks.
+ * MODEL_PROVIDER is forced to "mock" so tests are deterministic and cost-free
+ * regardless of the .env.development setting.
  *
  * Run: npx ts-node src/dev/runIntegrationTests.ts
  */
+
+// Force mock provider before any module that reads MODEL_PROVIDER is imported.
+// This must come before all other imports.
+process.env.MODEL_PROVIDER = "mock";
 
 import { agentService } from "../services/AgentService";
 import { sessionService } from "../services/SessionService";
