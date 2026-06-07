@@ -12,35 +12,77 @@ import path from "path";
 dotenv.config({ path: path.join(__dirname, "../../../../.env.development") });
 dotenv.config({ path: path.join(__dirname, "../../../../.env") });
 
-function getAzureConfig() {
-  const endpoint = process.env.AZURE_OPENAI_ENDPOINT?.trim();
-  const apiKey = process.env.AZURE_OPENAI_API_KEY?.trim();
-  const deployment = process.env.AZURE_OPENAI_DEPLOYMENT?.trim();
-  const apiVersion = process.env.AZURE_OPENAI_API_VERSION?.trim();
+// ─── Azure Configuration ────────────────────────────────────────────────────
+//
+// This provider matches the EasyMyDraft / Corvq Azure integration pattern:
+//
+//   URL: {endpoint}/openai/deployments/{DEPLOYMENT_NAME}/chat/completions?api-version={version}
+//
+// DEPLOYMENT_NAME is the custom name given when the model was deployed inside
+// the Azure OpenAI resource — NOT the model name (e.g. "gpt-4o-mini") and
+// NOT the resource name (e.g. "corvq-openai").
+//
+// The deployment named "corvq-chat" was confirmed working in the Corvq project
+// which uses the same Azure resource (corvq-openai.openai.azure.com).
+//
+// ────────────────────────────────────────────────────────────────────────────
 
-  if (!endpoint || !apiKey || !deployment || !apiVersion) {
+/** Custom deployment name as created in the Azure portal for the chat model. */
+const AZURE_DEPLOYMENT_NAME = "corvq-chat";
+
+/** Azure OpenAI REST API version to use. */
+const AZURE_API_VERSION = "2024-12-01-preview";
+
+function getAzureConfig() {
+  const endpoint = (
+    process.env.AZURE_OPENAI_ENDPOINT?.trim() ?? ""
+  ).replace(/\/$/, "");
+
+  // Support both AZURE_OPENAI_API_KEY (FeastPilot convention) and
+  // AZURE_OPENAI_KEY (EasyMyDraft convention) so either .env works.
+  const apiKey =
+    process.env.AZURE_OPENAI_API_KEY?.trim() ||
+    process.env.AZURE_OPENAI_KEY?.trim() ||
+    "";
+
+  if (!endpoint || !apiKey) {
     throw new Error(
       "Missing Azure OpenAI environment variables: " +
-      [
-        !endpoint && "AZURE_OPENAI_ENDPOINT",
-        !apiKey && "AZURE_OPENAI_API_KEY",
-        !deployment && "AZURE_OPENAI_DEPLOYMENT",
-        !apiVersion && "AZURE_OPENAI_API_VERSION"
-      ]
-        .filter(Boolean)
-        .join(", ")
+        [!endpoint && "AZURE_OPENAI_ENDPOINT", !apiKey && "AZURE_OPENAI_API_KEY"]
+          .filter(Boolean)
+          .join(", ")
     );
   }
 
-  return { endpoint, apiKey, deployment, apiVersion };
+  return { endpoint, apiKey };
 }
 
-/** Implementation for Azure OpenAI Service deployments. */
+/**
+ * Builds the Azure OpenAI chat completions URL.
+ *
+ * Azure OpenAI REST API pattern (confirmed from EasyMyDraft / Corvq codebase):
+ *   {endpoint}/openai/deployments/{deploymentName}/chat/completions?api-version={version}
+ *
+ * The "deploymentName" is the name assigned in the Azure portal when the model
+ * was deployed — NOT the underlying model name.
+ */
+function buildUrl(endpoint: string): string {
+  return `${endpoint}/openai/deployments/${AZURE_DEPLOYMENT_NAME}/chat/completions?api-version=${AZURE_API_VERSION}`;
+}
+
+/** Azure OpenAI Service provider — matches the Corvq/EasyMyDraft integration style. */
 export class AzureOpenAIProvider extends NotImplementedProvider {
   readonly name: ModelProviderType = "azure-openai";
 
+  /** The Azure deployment name used for all requests. */
+  readonly deploymentName: string = AZURE_DEPLOYMENT_NAME;
+
+  /** The API version used for all requests. */
+  readonly apiVersion: string = AZURE_API_VERSION;
+
   async classifyIntent(message: string): Promise<IntentResult> {
-    const { endpoint, apiKey, deployment, apiVersion } = getAzureConfig();
+    const { endpoint, apiKey } = getAzureConfig();
+    const url = buildUrl(endpoint);
 
     const systemPrompt = `You are a food ordering assistant's intent classifier.
 Analyze the user's message and classify their intent into exactly one of these supported intents:
@@ -62,8 +104,6 @@ You MUST respond with a JSON object matching this schema:
 
 Do not include any explanation or extra text. Output only valid JSON.`;
 
-    const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
-    
     let response: Response;
     try {
       response = await fetch(url, {
@@ -87,7 +127,9 @@ Do not include any explanation or extra text. Output only valid JSON.`;
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
-      throw new Error(`Azure OpenAI API returned status ${response.status}: ${errorText}`);
+      throw new Error(
+        `Azure OpenAI API returned status ${response.status}: ${errorText}`
+      );
     }
 
     const data = await response.json();
@@ -96,12 +138,16 @@ Do not include any explanation or extra text. Output only valid JSON.`;
     }
 
     if (data.usage) {
-      console.log(`[Token Usage] Prompt: ${data.usage.prompt_tokens}, Completion: ${data.usage.completion_tokens}, Total: ${data.usage.total_tokens}`);
+      console.log(
+        `[Token Usage] Prompt: ${data.usage.prompt_tokens}, Completion: ${data.usage.completion_tokens}, Total: ${data.usage.total_tokens}`
+      );
     }
 
     const choice = data.choices[0];
     if (choice.finish_reason === "content_filter") {
-      throw new Error("Azure OpenAI content filter refused to generate response.");
+      throw new Error(
+        "Azure OpenAI content filter refused to generate response."
+      );
     }
 
     const content = choice.message?.content?.trim();
@@ -120,7 +166,7 @@ Do not include any explanation or extra text. Output only valid JSON.`;
         "remove_item",
         "view_cart",
         "set_quantity",
-        "unknown"
+        "unknown",
       ]);
 
       let intent = parsed.intent;
@@ -128,7 +174,8 @@ Do not include any explanation or extra text. Output only valid JSON.`;
         intent = "unknown";
       }
 
-      const confidence = typeof parsed.confidence === "number" ? parsed.confidence : 1.0;
+      const confidence =
+        typeof parsed.confidence === "number" ? parsed.confidence : 1.0;
 
       return {
         intent: intent as OrderingIntent,
@@ -136,7 +183,9 @@ Do not include any explanation or extra text. Output only valid JSON.`;
         rawMessage: message,
       };
     } catch (err: any) {
-      throw new Error(`Azure OpenAI returned invalid JSON: "${content}". Error: ${err.message}`);
+      throw new Error(
+        `Azure OpenAI returned invalid JSON: "${content}". Error: ${err.message}`
+      );
     }
   }
 
@@ -144,15 +193,16 @@ Do not include any explanation or extra text. Output only valid JSON.`;
     message: string,
     intent?: OrderingIntent
   ): Promise<EntityExtractionResult> {
-    const { endpoint, apiKey, deployment, apiVersion } = getAzureConfig();
+    const { endpoint, apiKey } = getAzureConfig();
+    const url = buildUrl(endpoint);
 
     const systemPrompt = `You are a food ordering assistant's entity extractor.
 Given a user message and a classified intent, extract the relevant entities.
 The supported entities are:
-- item (string or null): The name of the menu item (e.g., "chicken biryani" from "add 2 chicken biryanis"). Normalize to singular if possible, but keep the item name recognizable. Do not include quantity words.
+- item (string or null): The name of the menu item (e.g., "chicken biryani" from "add 2 chicken biryanis"). Normalize to singular if possible. Do not include quantity words.
 - quantity (number or null): The quantity of the item (e.g., 2 from "add 2 chicken biryanis"). Defaults to null if not specified.
 - restaurant (string or null): The name of the restaurant being selected (e.g., "Behrouz" from "select Behrouz").
-- searchQuery (string or null): The search query keywords for searching restaurants (e.g., "biryani" from "I want biryani", or "pizza" from "suggest some pizza places").
+- searchQuery (string or null): The search query keywords for searching restaurants (e.g., "biryani" from "I want biryani").
 
 You MUST respond with a JSON object matching this schema:
 {
@@ -174,8 +224,6 @@ Examples:
 
 Do not include any explanation or extra text. Output only valid JSON.`;
 
-    const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
-    
     let response: Response;
     try {
       response = await fetch(url, {
@@ -187,7 +235,10 @@ Do not include any explanation or extra text. Output only valid JSON.`;
         body: JSON.stringify({
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: `Message: "${message}"\nIntent: "${intent ?? "unknown"}"` },
+            {
+              role: "user",
+              content: `Message: "${message}"\nIntent: "${intent ?? "unknown"}"`,
+            },
           ],
           temperature: 0,
           response_format: { type: "json_object" },
@@ -199,7 +250,9 @@ Do not include any explanation or extra text. Output only valid JSON.`;
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error");
-      throw new Error(`Azure OpenAI API returned status ${response.status}: ${errorText}`);
+      throw new Error(
+        `Azure OpenAI API returned status ${response.status}: ${errorText}`
+      );
     }
 
     const data = await response.json();
@@ -208,12 +261,16 @@ Do not include any explanation or extra text. Output only valid JSON.`;
     }
 
     if (data.usage) {
-      console.log(`[Token Usage] Prompt: ${data.usage.prompt_tokens}, Completion: ${data.usage.completion_tokens}, Total: ${data.usage.total_tokens}`);
+      console.log(
+        `[Token Usage] Prompt: ${data.usage.prompt_tokens}, Completion: ${data.usage.completion_tokens}, Total: ${data.usage.total_tokens}`
+      );
     }
 
     const choice = data.choices[0];
     if (choice.finish_reason === "content_filter") {
-      throw new Error("Azure OpenAI content filter refused to generate response.");
+      throw new Error(
+        "Azure OpenAI content filter refused to generate response."
+      );
     }
 
     const content = choice.message?.content?.trim();
@@ -225,18 +282,10 @@ Do not include any explanation or extra text. Output only valid JSON.`;
       const parsed = JSON.parse(content);
       const entities: Record<string, string | number | boolean | null> = {};
 
-      if (parsed.item !== undefined && parsed.item !== null) {
-        entities.item = parsed.item;
-      }
-      if (parsed.quantity !== undefined && parsed.quantity !== null) {
-        entities.quantity = parsed.quantity;
-      }
-      if (parsed.restaurant !== undefined && parsed.restaurant !== null) {
-        entities.restaurant = parsed.restaurant;
-      }
-      if (parsed.searchQuery !== undefined && parsed.searchQuery !== null) {
-        entities.searchQuery = parsed.searchQuery;
-      }
+      if (parsed.item !== undefined && parsed.item !== null) entities.item = parsed.item;
+      if (parsed.quantity !== undefined && parsed.quantity !== null) entities.quantity = parsed.quantity;
+      if (parsed.restaurant !== undefined && parsed.restaurant !== null) entities.restaurant = parsed.restaurant;
+      if (parsed.searchQuery !== undefined && parsed.searchQuery !== null) entities.searchQuery = parsed.searchQuery;
 
       return {
         item: parsed.item ?? undefined,
@@ -246,8 +295,9 @@ Do not include any explanation or extra text. Output only valid JSON.`;
         entities,
       };
     } catch (err: any) {
-      throw new Error(`Azure OpenAI returned invalid JSON: "${content}". Error: ${err.message}`);
+      throw new Error(
+        `Azure OpenAI returned invalid JSON: "${content}". Error: ${err.message}`
+      );
     }
   }
 }
-
