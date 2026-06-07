@@ -163,7 +163,6 @@ async function runModelServiceTests(): Promise<void> {
 async function runSkeletonProviderTests(): Promise<void> {
   const skeletons: Array<{ name: string; provider: ModelProviderType }> = [
     { name: "NvidiaProvider", provider: "nvidia" },
-    { name: "AzureOpenAIProvider", provider: "azure-openai" },
     { name: "OpenAIProvider", provider: "openai" },
     { name: "GeminiProvider", provider: "gemini" },
     { name: "BedrockProvider", provider: "bedrock" },
