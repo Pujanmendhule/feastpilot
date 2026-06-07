@@ -95,6 +95,10 @@ Do not include any explanation or extra text. Output only valid JSON.`;
       throw new Error("Azure OpenAI returned empty response choices.");
     }
 
+    if (data.usage) {
+      console.log(`[Token Usage] Prompt: ${data.usage.prompt_tokens}, Completion: ${data.usage.completion_tokens}, Total: ${data.usage.total_tokens}`);
+    }
+
     const choice = data.choices[0];
     if (choice.finish_reason === "content_filter") {
       throw new Error("Azure OpenAI content filter refused to generate response.");
@@ -201,6 +205,10 @@ Do not include any explanation or extra text. Output only valid JSON.`;
     const data = await response.json();
     if (!data.choices || data.choices.length === 0) {
       throw new Error("Azure OpenAI returned empty response choices.");
+    }
+
+    if (data.usage) {
+      console.log(`[Token Usage] Prompt: ${data.usage.prompt_tokens}, Completion: ${data.usage.completion_tokens}, Total: ${data.usage.total_tokens}`);
     }
 
     const choice = data.choices[0];
