@@ -393,6 +393,108 @@ async function runEdgeCaseTests(): Promise<void> {
   }
 }
 
+// ── Conversational memory tests (isolated sessions) ──────────────────────────
+
+async function setupSessionWithRestaurant(): Promise<string> {
+  const session = sessionService.createSession();
+  await send(session.id, "I want biryani");
+  await send(session.id, "Behrouz");
+  await send(session.id, "show menu");
+  return session.id;
+}
+
+async function runConversationalMemoryTests(): Promise<void> {
+  // Flow A — add chicken biryani → add one more → show cart → expect qty = 2
+  {
+    const sessionId = await setupSessionWithRestaurant();
+    await send(sessionId, "add chicken biryani");
+    const addMoreResponse = await send(sessionId, "add one more");
+    await send(sessionId, "show cart");
+    const cart = getCart(sessionId);
+
+    const qty = cart ? cartItemQuantity(cart, CHICKEN_BIRYANI_ID) : 0;
+    const passed =
+      qty === 2 &&
+      addMoreResponse.toLowerCase().includes("another");
+
+    record(
+      "Memory A — Add One More",
+      passed,
+      passed
+        ? undefined
+        : `chickenQty=${qty}, expected=2, response="${addMoreResponse.slice(0, 100)}"`
+    );
+  }
+
+  // Flow B — add chicken biryani → make it 3 → show cart → expect qty = 3
+  {
+    const sessionId = await setupSessionWithRestaurant();
+    await send(sessionId, "add chicken biryani");
+    const makeItResponse = await send(sessionId, "make it 3");
+    await send(sessionId, "show cart");
+    const cart = getCart(sessionId);
+
+    const qty = cart ? cartItemQuantity(cart, CHICKEN_BIRYANI_ID) : 0;
+    const passed =
+      qty === 3 &&
+      makeItResponse.toLowerCase().includes("quantity");
+
+    record(
+      "Memory B — Make It 3",
+      passed,
+      passed
+        ? undefined
+        : `chickenQty=${qty}, expected=3, response="${makeItResponse.slice(0, 100)}"`
+    );
+  }
+
+  // Flow C — add chicken biryani → remove it → show cart → expect empty
+  {
+    const sessionId = await setupSessionWithRestaurant();
+    await send(sessionId, "add chicken biryani");
+    const removeResponse = await send(sessionId, "remove it");
+    const cartResponse = await send(sessionId, "show cart");
+    const cart = getCart(sessionId);
+
+    const isEmpty = !cart || cart.items.length === 0;
+    const passed =
+      isEmpty &&
+      removeResponse.toLowerCase().includes("removed");
+
+    record(
+      "Memory C — Remove It",
+      passed,
+      passed
+        ? undefined
+        : `cartEmpty=${isEmpty}, response="${removeResponse.slice(0, 100)}", cart="${cartResponse.slice(0, 80)}"`
+    );
+  }
+
+  // Flow D — add chicken biryani → add gulab jamun → remove it → expect gulab removed, chicken stays
+  {
+    const sessionId = await setupSessionWithRestaurant();
+    await send(sessionId, "add chicken biryani");
+    await send(sessionId, "add gulab jamun");
+    const removeResponse = await send(sessionId, "remove it");
+    const cart = getCart(sessionId);
+
+    const hasChicken = cart ? hasCartItem(cart, CHICKEN_BIRYANI_ID) : false;
+    const hasGulab = cart ? hasCartItem(cart, GULAB_JAMUN_ID) : false;
+    const passed =
+      hasChicken &&
+      !hasGulab &&
+      removeResponse.toLowerCase().includes("removed");
+
+    record(
+      "Memory D — Remove Last Referenced (Gulab Jamun)",
+      passed,
+      passed
+        ? undefined
+        : `hasChicken=${hasChicken}, hasGulab=${hasGulab}, response="${removeResponse.slice(0, 100)}"`
+    );
+  }
+}
+
 // ── Bug reports ──────────────────────────────────────────────────────────────
 
 function printBugReports(): void {
@@ -417,6 +519,7 @@ async function main(): Promise<void> {
 
   await runMainWorkflow();
   await runEdgeCaseTests();
+  await runConversationalMemoryTests();
 
   const passed = outcomes.filter((o) => o.passed).length;
   const failed = outcomes.filter((o) => !o.passed).length;

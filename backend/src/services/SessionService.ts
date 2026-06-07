@@ -13,6 +13,8 @@ function createEmptySession(id: string): Session {
     awaitingRestaurantSelection: false,
     lastSearchResults: [],
     lastViewedMenuItems: [],
+    lastReferencedMenuItemId: null,
+    lastReferencedMenuItemName: null,
     messages: [],
     preferences: {},
     assumptions: {},
@@ -124,6 +126,36 @@ export class SessionService {
       throw new Error(`Session not found: ${sessionId}`);
     }
     return session.lastViewedMenuItems;
+  }
+
+  setLastReferencedItem(
+    sessionId: string,
+    itemId: string,
+    itemName: string
+  ): Session {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    session.lastReferencedMenuItemId = itemId;
+    session.lastReferencedMenuItemName = itemName;
+    return session;
+  }
+
+  getLastReferencedItem(
+    sessionId: string
+  ): { itemId: string; itemName: string } | null {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    if (!session.lastReferencedMenuItemId || !session.lastReferencedMenuItemName) {
+      return null;
+    }
+    return {
+      itemId: session.lastReferencedMenuItemId,
+      itemName: session.lastReferencedMenuItemName,
+    };
   }
 
   deleteSession(sessionId: string): boolean {

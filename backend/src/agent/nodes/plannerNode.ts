@@ -3,6 +3,7 @@ import { DEFAULT_QUANTITY, DEFAULT_RESTAURANT_ID } from "../constants";
 import { extractSearchQuery } from "../utils/queryExtractor";
 import { matchRestaurantSelection } from "../utils/restaurantMatcher";
 import { parseCartIntent } from "../utils/cartIntentParser";
+import { resolveReference, extractAbsoluteQuantity, isIncrementalAdd } from "../utils/referenceResolver";
 import { sessionService } from "../../services/SessionService";
 import { modelService } from "../../services/models/ModelService";
 import type { EntityExtractionResult, IntentResult } from "../../services/models/types";
@@ -15,6 +16,39 @@ const SEARCH_KEYWORDS = ["restaurant", "food", "biryani", "pizza", "burger"];
 
 /** Keywords that trigger a menu fetch */
 const MENU_KEYWORDS = ["menu", "show menu", "view menu"];
+
+/**
+ * Words that Azure entity extraction may return as `item` when the user
+ * is using a conversational reference rather than naming an actual dish.
+ * When `entities.item` is one of these, treat it as missing.
+ */
+const REFERENCE_ENTITY_WORDS = new Set([
+  "it", "that", "same", "same item", "another", "one more",
+  "this", "the same",
+]);
+
+function stripReferenceEntity(item: string | undefined): string | undefined {
+  if (!item) return item;
+  return REFERENCE_ENTITY_WORDS.has(item.toLowerCase().trim()) ? undefined : item;
+}
+
+/**
+ * Attempt to fill an empty menuItemQuery from session memory.
+ * Returns the remembered item name or the original query.
+ */
+function resolveMenuItemFromMemory(
+  menuItemQuery: string | null,
+  sessionId: string
+): string | null {
+  if (menuItemQuery) return menuItemQuery;
+  const session = sessionService.getSession(sessionId);
+  if (!session) return null;
+  const ref = resolveReference("", session);
+  // We pass "" here because by this point we already know
+  // the intent involves a reference — the caller checks the
+  // user message for reference keywords.
+  return ref?.itemName ?? null;
+}
 
 function resolveRestaurantId(sessionId: string): string {
   const selectedRestaurantId = sessionService.getSession(sessionId)
@@ -79,6 +113,16 @@ function fallbackKeywordPlanner(state: AgentState): AgentState {
   if (cartIntent) {
     const restaurantId = resolveRestaurantId(state.sessionId);
 
+    // ── Reference resolution for fallback planner ──
+    // If the cart parser returned an empty itemQuery, try to fill it
+    // from session memory (e.g. "remove it", "add one more").
+    const session = sessionService.getSession(state.sessionId);
+    let resolvedItemQuery = cartIntent.type !== "view" ? (cartIntent as { itemQuery: string }).itemQuery : null;
+    if (session && resolvedItemQuery === "") {
+      const ref = resolveReference(state.userMessage, session);
+      resolvedItemQuery = ref?.itemName ?? null;
+    }
+
     if (cartIntent.type === "view") {
       return {
         ...state,
@@ -95,7 +139,7 @@ function fallbackKeywordPlanner(state: AgentState): AgentState {
         plannedTool: "removeFromCart",
         restaurantId,
         cartAction: "remove",
-        menuItemQuery: cartIntent.itemQuery,
+        menuItemQuery: resolvedItemQuery,
         toolCalls: [...state.toolCalls, "planner"],
       };
     }
@@ -106,7 +150,7 @@ function fallbackKeywordPlanner(state: AgentState): AgentState {
         plannedTool: "setCartQuantity",
         restaurantId,
         cartAction: "setQuantity",
-        menuItemQuery: cartIntent.itemQuery,
+        menuItemQuery: resolvedItemQuery,
         quantity: cartIntent.quantity,
         toolCalls: [...state.toolCalls, "planner"],
       };
@@ -117,7 +161,7 @@ function fallbackKeywordPlanner(state: AgentState): AgentState {
       plannedTool: "addToCart",
       restaurantId,
       cartAction: cartIntent.type,
-      menuItemQuery: cartIntent.itemQuery,
+      menuItemQuery: resolvedItemQuery,
       quantity: cartIntent.quantity,
       toolCalls: [...state.toolCalls, "planner"],
     };
@@ -262,14 +306,23 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
 
     // ── add_to_cart ───────────────────────────────────────────────────────────
     case "add_to_cart": {
+      const strippedItem = stripReferenceEntity(entities.item);
       // Primary entities from Azure; fall back to legacy cart parser for item/qty.
-      const cartIntent = !entities.item ? parseCartIntent(state.userMessage) : null;
+      const cartIntent = !strippedItem ? parseCartIntent(state.userMessage) : null;
       // Narrow away variants that lack itemQuery ('view') or quantity ('view'/'remove').
       const addCartFallback =
         cartIntent && cartIntent.type !== "view" && cartIntent.type !== "remove"
           ? cartIntent
           : null;
-      const menuItemQuery = entities.item ?? addCartFallback?.itemQuery ?? null;
+      let menuItemQuery = strippedItem ?? addCartFallback?.itemQuery ?? null;
+
+      // Reference resolution: fill empty menuItemQuery from memory.
+      const addSession = sessionService.getSession(state.sessionId);
+      if ((!menuItemQuery || menuItemQuery === "") && addSession) {
+        const ref = resolveReference(state.userMessage, addSession);
+        if (ref) menuItemQuery = ref.itemName;
+      }
+
       const quantity =
         entities.quantity ??
         addCartFallback?.quantity ??
@@ -290,12 +343,21 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
 
     // ── add_another ───────────────────────────────────────────────────────────
     case "add_another": {
-      const cartIntent = !entities.item ? parseCartIntent(state.userMessage) : null;
+      const strippedItem = stripReferenceEntity(entities.item);
+      const cartIntent = !strippedItem ? parseCartIntent(state.userMessage) : null;
       const addAnotherFallback =
         cartIntent && cartIntent.type !== "view" && cartIntent.type !== "remove"
           ? cartIntent
           : null;
-      const menuItemQuery = entities.item ?? addAnotherFallback?.itemQuery ?? null;
+      let menuItemQuery = strippedItem ?? addAnotherFallback?.itemQuery ?? null;
+
+      // Reference resolution: fill empty menuItemQuery from memory.
+      const anotherSession = sessionService.getSession(state.sessionId);
+      if ((!menuItemQuery || menuItemQuery === "") && anotherSession) {
+        const ref = resolveReference(state.userMessage, anotherSession);
+        if (ref) menuItemQuery = ref.itemName;
+      }
+
       const quantity =
         entities.quantity ??
         addAnotherFallback?.quantity ??
@@ -316,9 +378,17 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
 
     // ── remove_item ───────────────────────────────────────────────────────────
     case "remove_item": {
-      const cartIntent = !entities.item ? parseCartIntent(state.userMessage) : null;
+      const strippedItem = stripReferenceEntity(entities.item);
+      const cartIntent = !strippedItem ? parseCartIntent(state.userMessage) : null;
       const removeFallback = cartIntent?.type !== "view" ? cartIntent : null;
-      const menuItemQuery = entities.item ?? removeFallback?.itemQuery ?? null;
+      let menuItemQuery = strippedItem ?? removeFallback?.itemQuery ?? null;
+
+      // Reference resolution: fill empty menuItemQuery from memory.
+      const removeSession = sessionService.getSession(state.sessionId);
+      if ((!menuItemQuery || menuItemQuery === "") && removeSession) {
+        const ref = resolveReference(state.userMessage, removeSession);
+        if (ref) menuItemQuery = ref.itemName;
+      }
 
       return {
         ...state,
@@ -344,15 +414,28 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
 
     // ── set_quantity ──────────────────────────────────────────────────────────
     case "set_quantity": {
-      const cartIntent = !entities.item ? parseCartIntent(state.userMessage) : null;
+      const strippedItem = stripReferenceEntity(entities.item);
+      const cartIntent = !strippedItem ? parseCartIntent(state.userMessage) : null;
       const setQtyFallback =
         cartIntent && cartIntent.type !== "view" && cartIntent.type !== "remove"
           ? cartIntent
           : null;
-      const menuItemQuery = entities.item ?? setQtyFallback?.itemQuery ?? null;
+      let menuItemQuery = strippedItem ?? setQtyFallback?.itemQuery ?? null;
+
+      // Reference resolution: fill empty menuItemQuery from memory.
+      const setQtySession = sessionService.getSession(state.sessionId);
+      if ((!menuItemQuery || menuItemQuery === "") && setQtySession) {
+        const ref = resolveReference(state.userMessage, setQtySession);
+        if (ref) menuItemQuery = ref.itemName;
+      }
+
+      // Quantity: prefer Azure entity, then cart parser, then absolute quantity
+      // from "make it N" pattern, then default.
+      const absQty = extractAbsoluteQuantity(state.userMessage);
       const quantity =
         entities.quantity ??
         setQtyFallback?.quantity ??
+        absQty ??
         state.quantity ??
         DEFAULT_QUANTITY;
 

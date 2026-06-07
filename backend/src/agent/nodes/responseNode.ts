@@ -115,8 +115,12 @@ function renderCartOperationResult(result: CartOperationResult): string {
     );
   }
 
-  if (result.action === "add" || result.action === "addAnother") {
+  if (result.action === "add") {
     return `Added ${result.itemName}.\n\nCart subtotal: ₹${result.data.subtotal}`;
+  }
+
+  if (result.action === "addAnother") {
+    return `Added another ${result.itemName}.\n\nCart subtotal: ₹${result.data.subtotal}`;
   }
 
   if (result.action === "remove") {

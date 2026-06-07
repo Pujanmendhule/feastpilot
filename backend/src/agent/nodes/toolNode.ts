@@ -219,6 +219,13 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
       };
     }
 
+    // Update conversational memory with the resolved item.
+    sessionService.setLastReferencedItem(
+      state.sessionId,
+      resolved.menuItemId,
+      resolved.itemName
+    );
+
     return {
       ...state,
       cartId,
@@ -274,6 +281,13 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
         toolCalls: [...state.toolCalls, "removeFromCart"],
       };
     }
+
+    // Update conversational memory with the resolved item.
+    sessionService.setLastReferencedItem(
+      state.sessionId,
+      resolved.menuItemId,
+      resolved.itemName
+    );
 
     return {
       ...state,
@@ -333,6 +347,13 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
         toolCalls: [...state.toolCalls, state.plannedTool!],
       };
     }
+
+    // Update conversational memory with the resolved item.
+    sessionService.setLastReferencedItem(
+      state.sessionId,
+      resolved.menuItemId,
+      resolved.itemName
+    );
 
     return {
       ...state,

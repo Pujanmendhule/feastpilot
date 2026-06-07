@@ -33,6 +33,10 @@ export interface Session {
   lastSearchResults: SessionSearchResult[];
   /** Menu items from the most recent menu view or fetch for this session. */
   lastViewedMenuItems: SessionMenuItem[];
+  /** Most recently discussed menu item ID — used for pronoun resolution. */
+  lastReferencedMenuItemId: string | null;
+  /** Most recently discussed menu item name — used for pronoun resolution. */
+  lastReferencedMenuItemName: string | null;
   messages: SessionMessage[];
   preferences: SessionPreferences;
   assumptions: SessionAssumptions;

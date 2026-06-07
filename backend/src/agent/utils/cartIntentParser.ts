@@ -49,6 +49,36 @@ export function parseCartIntent(message: string): CartIntent | null {
     return { type: "view" };
   }
 
+  // ── Reference-only patterns (empty itemQuery → planner fills from memory) ──
+
+  // "make it 3" / "change it to 3" / "set it to 3" / "update it to 3"
+  const setRefQuantityMatch = normalized.match(
+    /^(?:make|change|set|update)\s+it\s+(?:to\s+)?(\d+)$/
+  );
+  if (setRefQuantityMatch) {
+    return {
+      type: "setQuantity",
+      itemQuery: "",
+      quantity: Number(setRefQuantityMatch[1]),
+    };
+  }
+
+  // "remove it" / "remove that"
+  if (/^remove\s+(?:it|that)$/.test(normalized)) {
+    return { type: "remove", itemQuery: "" };
+  }
+
+  // "add one more" / "one more" / "add another" / "another"
+  if (
+    /^(?:add\s+)?one\s+more$/.test(normalized) ||
+    /^(?:add\s+)?another$/.test(normalized) ||
+    /^another\s+one$/.test(normalized)
+  ) {
+    return { type: "addAnother", itemQuery: "", quantity: 1 };
+  }
+
+  // ── Existing patterns ──────────────────────────────────────────────────────
+
   const setQuantityMatch = normalized.match(
     /^change\s+(.+?)\s+quantity\s+to\s+(\d+)$/
   );
@@ -83,3 +113,4 @@ export function parseCartIntent(message: string): CartIntent | null {
 
   return null;
 }
+
