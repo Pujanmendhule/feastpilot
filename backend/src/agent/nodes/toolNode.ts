@@ -283,11 +283,22 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
     }
 
     // Update conversational memory with the resolved item.
-    sessionService.setLastReferencedItem(
-      state.sessionId,
-      resolved.menuItemId,
-      resolved.itemName
-    );
+    const sess = sessionService.getSession(state.sessionId);
+    if (sess) {
+      const remainingItems = cartResult.data?.items ?? [];
+      if (remainingItems.length > 0) {
+        const lastItem = remainingItems[remainingItems.length - 1];
+        const cachedItem = sess.lastViewedMenuItems.find(
+          (i) => i.id === lastItem.menuItemId
+        );
+        const itemName = cachedItem?.name ?? lastItem.menuItemId;
+        sess.lastReferencedMenuItemId = lastItem.menuItemId;
+        sess.lastReferencedMenuItemName = itemName;
+      } else {
+        sess.lastReferencedMenuItemId = null;
+        sess.lastReferencedMenuItemName = null;
+      }
+    }
 
     return {
       ...state,
