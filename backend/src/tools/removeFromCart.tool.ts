@@ -29,7 +29,7 @@ export async function removeFromCart(
   }
 
   try {
-    const cart = cartService.removeItem(
+    const cart = await cartService.removeItem(
       cartId,
       restaurantId,
       menuItemId

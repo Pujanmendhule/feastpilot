@@ -13,14 +13,14 @@ const CHICKEN_BIRYANI_ID = "bb_3";
 const GULAB_JAMUN_ID = "bb_5";
 const EXPECTED_RESTAURANT = "behrouz_biryani";
 
-function getCart(sessionId: string) {
-  const session = sessionService.getSession(sessionId);
+async function getCart(sessionId: string) {
+  const session = await sessionService.getSession(sessionId);
   if (!session?.cartId) return undefined;
-  return cartService.getCart(session.cartId);
+  return await cartService.getCart(session.cartId);
 }
 
 function cartItemQuantity(
-  cart: NonNullable<ReturnType<typeof getCart>>,
+  cart: NonNullable<Awaited<ReturnType<typeof getCart>>>,
   menuItemId: string
 ): number {
   const line = cart.items.find(
@@ -31,14 +31,14 @@ function cartItemQuantity(
 }
 
 function hasCartItem(
-  cart: NonNullable<ReturnType<typeof getCart>>,
+  cart: NonNullable<Awaited<ReturnType<typeof getCart>>>,
   menuItemId: string
 ): boolean {
   return cartItemQuantity(cart, menuItemId) > 0;
 }
 
-function printSessionInspection(sessionId: string): void {
-  const session = sessionService.getSession(sessionId);
+async function printSessionInspection(sessionId: string): Promise<void> {
+  const session = await sessionService.getSession(sessionId);
   if (!session) {
     console.log("Session not found!");
     return;
@@ -60,58 +60,58 @@ async function send(sessionId: string, message: string): Promise<string> {
 
 async function runTestA(): Promise<boolean> {
   console.log("\n=== TEST A — Incremental Quantity ===");
-  const session = sessionService.createSession();
+  const session = await sessionService.createSession();
   const sessionId = session.id;
 
   await send(sessionId, "add chicken biryani");
   await send(sessionId, "add one more");
   await send(sessionId, "show cart");
 
-  const cart = getCart(sessionId);
+  const cart = await getCart(sessionId);
   const qty = cart ? cartItemQuantity(cart, CHICKEN_BIRYANI_ID) : 0;
   const passed = qty === 2;
 
-  printSessionInspection(sessionId);
+  await printSessionInspection(sessionId);
   return passed;
 }
 
 async function runTestB(): Promise<boolean> {
   console.log("\n=== TEST B — Absolute Quantity ===");
-  const session = sessionService.createSession();
+  const session = await sessionService.createSession();
   const sessionId = session.id;
 
   await send(sessionId, "add chicken biryani");
   await send(sessionId, "make it 3");
   await send(sessionId, "show cart");
 
-  const cart = getCart(sessionId);
+  const cart = await getCart(sessionId);
   const qty = cart ? cartItemQuantity(cart, CHICKEN_BIRYANI_ID) : 0;
   const passed = qty === 3;
 
-  printSessionInspection(sessionId);
+  await printSessionInspection(sessionId);
   return passed;
 }
 
 async function runTestC(): Promise<boolean> {
   console.log("\n=== TEST C — Remove Reference ===");
-  const session = sessionService.createSession();
+  const session = await sessionService.createSession();
   const sessionId = session.id;
 
   await send(sessionId, "add chicken biryani");
   await send(sessionId, "remove it");
   await send(sessionId, "show cart");
 
-  const cart = getCart(sessionId);
+  const cart = await getCart(sessionId);
   const isEmpty = !cart || cart.items.length === 0;
   const passed = isEmpty;
 
-  printSessionInspection(sessionId);
+  await printSessionInspection(sessionId);
   return passed;
 }
 
 async function runTestD(): Promise<boolean> {
   console.log("\n=== TEST D — Last Referenced Item ===");
-  const session = sessionService.createSession();
+  const session = await sessionService.createSession();
   const sessionId = session.id;
 
   await send(sessionId, "add chicken biryani");
@@ -119,18 +119,18 @@ async function runTestD(): Promise<boolean> {
   await send(sessionId, "remove it");
   await send(sessionId, "show cart");
 
-  const cart = getCart(sessionId);
+  const cart = await getCart(sessionId);
   const hasChicken = cart ? hasCartItem(cart, CHICKEN_BIRYANI_ID) : false;
   const hasGulab = cart ? hasCartItem(cart, GULAB_JAMUN_ID) : false;
   const passed = hasChicken && !hasGulab;
 
-  printSessionInspection(sessionId);
+  await printSessionInspection(sessionId);
   return passed;
 }
 
 async function runTestE(): Promise<boolean> {
   console.log("\n=== TEST E — Full Real Conversation ===");
-  const session = sessionService.createSession();
+  const session = await sessionService.createSession();
   const sessionId = session.id;
 
   await send(sessionId, "I want biryani");
@@ -143,17 +143,19 @@ async function runTestE(): Promise<boolean> {
   await send(sessionId, "make it 3");
   await send(sessionId, "show cart");
 
-  const cart = getCart(sessionId);
+  const cart = await getCart(sessionId);
   const chickenQty = cart ? cartItemQuantity(cart, CHICKEN_BIRYANI_ID) : 0;
   const hasGulab = cart ? hasCartItem(cart, GULAB_JAMUN_ID) : false;
+  
+  const freshSession = await sessionService.getSession(sessionId);
   
   const passed =
     chickenQty === 3 &&
     !hasGulab &&
-    session.selectedRestaurantId === EXPECTED_RESTAURANT &&
-    session.lastReferencedMenuItemName === "Chicken Dum Biryani";
+    freshSession?.selectedRestaurantId === EXPECTED_RESTAURANT &&
+    freshSession?.lastReferencedMenuItemName === "Chicken Dum Biryani";
 
-  printSessionInspection(sessionId);
+  await printSessionInspection(sessionId);
   return passed;
 }
 

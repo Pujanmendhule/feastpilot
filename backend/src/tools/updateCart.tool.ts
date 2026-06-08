@@ -54,7 +54,7 @@ export async function updateCart(
   }
 
   try {
-    const cart = cartService.addItem(
+    const cart = await cartService.addItem(
       cartId,
       restaurantId,
       menuItemId,

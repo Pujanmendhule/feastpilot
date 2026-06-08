@@ -12,9 +12,9 @@ function normalizeSessionId(raw: string | undefined): string | null {
   return sessionId.length > 0 ? sessionId : null;
 }
 
-sessionRouter.post("/api/sessions", (_req, res, next) => {
+sessionRouter.post("/api/sessions", async (_req, res, next) => {
   try {
-    const session = sessionService.createSession();
+    const session = await sessionService.createSession();
 
     res.status(201).json({
       success: true,
@@ -25,7 +25,7 @@ sessionRouter.post("/api/sessions", (_req, res, next) => {
   }
 });
 
-sessionRouter.get("/api/sessions/:sessionId", (req, res, next) => {
+sessionRouter.get("/api/sessions/:sessionId", async (req, res, next) => {
   try {
     const sessionId = normalizeSessionId(req.params.sessionId);
 
@@ -37,7 +37,7 @@ sessionRouter.get("/api/sessions/:sessionId", (req, res, next) => {
       return;
     }
 
-    const session = sessionService.getSession(sessionId);
+    const session = await sessionService.getSession(sessionId);
 
     if (!session) {
       res.status(404).json({
@@ -56,7 +56,7 @@ sessionRouter.get("/api/sessions/:sessionId", (req, res, next) => {
   }
 });
 
-sessionRouter.delete("/api/sessions/:sessionId", (req, res, next) => {
+sessionRouter.delete("/api/sessions/:sessionId", async (req, res, next) => {
   try {
     const sessionId = normalizeSessionId(req.params.sessionId);
 
@@ -68,7 +68,7 @@ sessionRouter.delete("/api/sessions/:sessionId", (req, res, next) => {
       return;
     }
 
-    const deleted = sessionService.deleteSession(sessionId);
+    const deleted = await sessionService.deleteSession(sessionId);
 
     if (!deleted) {
       res.status(404).json({
@@ -86,7 +86,7 @@ sessionRouter.delete("/api/sessions/:sessionId", (req, res, next) => {
   }
 });
 
-sessionRouter.post("/api/sessions/:sessionId/cart", (req, res, next) => {
+sessionRouter.post("/api/sessions/:sessionId/cart", async (req, res, next) => {
   try {
     const sessionId = normalizeSessionId(req.params.sessionId);
 
@@ -109,7 +109,7 @@ sessionRouter.post("/api/sessions/:sessionId/cart", (req, res, next) => {
     }
 
     try {
-      const session = sessionService.attachCartToSession(sessionId, cartId);
+      const session = await sessionService.attachCartToSession(sessionId, cartId);
       res.json({
         success: true,
         data: session,

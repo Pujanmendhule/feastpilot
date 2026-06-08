@@ -36,12 +36,12 @@ function stripReferenceEntity(item: string | undefined): string | undefined {
  * Attempt to fill an empty menuItemQuery from session memory.
  * Returns the remembered item name or the original query.
  */
-function resolveMenuItemFromMemory(
+async function resolveMenuItemFromMemory(
   menuItemQuery: string | null,
   sessionId: string
-): string | null {
+): Promise<string | null> {
   if (menuItemQuery) return menuItemQuery;
-  const session = sessionService.getSession(sessionId);
+  const session = await sessionService.getSession(sessionId);
   if (!session) return null;
   const ref = resolveReference("", session);
   // We pass "" here because by this point we already know
@@ -50,9 +50,9 @@ function resolveMenuItemFromMemory(
   return ref?.itemName ?? null;
 }
 
-function resolveRestaurantId(sessionId: string): string {
-  const selectedRestaurantId = sessionService.getSession(sessionId)
-    ?.selectedRestaurantId;
+async function resolveRestaurantId(sessionId: string): Promise<string> {
+  const session = await sessionService.getSession(sessionId);
+  const selectedRestaurantId = session?.selectedRestaurantId;
   return selectedRestaurantId ?? DEFAULT_RESTAURANT_ID;
 }
 
@@ -85,11 +85,11 @@ function logPlannerDecision(
  *   - Confidence is below CONFIDENCE_THRESHOLD
  *   - Intent is "unknown" and no entity was extracted
  */
-function fallbackKeywordPlanner(state: AgentState): AgentState {
+async function fallbackKeywordPlanner(state: AgentState): Promise<AgentState> {
   const lowerMessage = state.userMessage.toLowerCase();
 
-  if (sessionService.isAwaitingRestaurantSelection(state.sessionId)) {
-    const candidates = sessionService.getLastSearchResults(state.sessionId);
+  if (await sessionService.isAwaitingRestaurantSelection(state.sessionId)) {
+    const candidates = await sessionService.getLastSearchResults(state.sessionId);
     const match = matchRestaurantSelection(state.userMessage, candidates);
 
     return {
@@ -104,19 +104,19 @@ function fallbackKeywordPlanner(state: AgentState): AgentState {
     return {
       ...state,
       plannedTool: "getMenu",
-      restaurantId: resolveRestaurantId(state.sessionId),
+      restaurantId: await resolveRestaurantId(state.sessionId),
       toolCalls: [...state.toolCalls, "planner"],
     };
   }
 
   const cartIntent = parseCartIntent(state.userMessage);
   if (cartIntent) {
-    const restaurantId = resolveRestaurantId(state.sessionId);
+    const restaurantId = await resolveRestaurantId(state.sessionId);
 
     // ── Reference resolution for fallback planner ──
     // If the cart parser returned an empty itemQuery, try to fill it
     // from session memory (e.g. "remove it", "add one more").
-    const session = sessionService.getSession(state.sessionId);
+    const session = await sessionService.getSession(state.sessionId);
     let resolvedItemQuery = cartIntent.type !== "view" ? (cartIntent as { itemQuery: string }).itemQuery : null;
     if (session && resolvedItemQuery === "") {
       const ref = resolveReference(state.userMessage, session);
@@ -200,8 +200,8 @@ function fallbackKeywordPlanner(state: AgentState): AgentState {
  */
 export async function plannerNode(state: AgentState): Promise<AgentState> {
   // Restaurant-selection state takes absolute precedence regardless of provider.
-  if (sessionService.isAwaitingRestaurantSelection(state.sessionId)) {
-    const candidates = sessionService.getLastSearchResults(state.sessionId);
+  if (await sessionService.isAwaitingRestaurantSelection(state.sessionId)) {
+    const candidates = await sessionService.getLastSearchResults(state.sessionId);
     const match = matchRestaurantSelection(state.userMessage, candidates);
 
     return {
@@ -221,7 +221,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
       `[Planner] Source    : legacy-fallback (classifyIntent failed — ${modelService.getProviderType()})`,
       error
     );
-    return fallbackKeywordPlanner(state);
+    return await fallbackKeywordPlanner(state);
   }
 
   // Fall back if intent is unknown or confidence is too low.
@@ -233,7 +233,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
       `[Planner] Source    : legacy-fallback ` +
       `(intent=${intentResult.intent}, confidence=${intentResult.confidence.toFixed(2)} < ${CONFIDENCE_THRESHOLD})`
     );
-    return fallbackKeywordPlanner(state);
+    return await fallbackKeywordPlanner(state);
   }
 
   // ── Entity extraction ──────────────────────────────────────────────────────
@@ -260,7 +260,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     intentConfidence: intentResult.confidence,
   };
 
-  const restaurantId = resolveRestaurantId(state.sessionId);
+  const restaurantId = await resolveRestaurantId(state.sessionId);
 
   // ── Intent → Tool mapping ──────────────────────────────────────────────────
   switch (intentResult.intent) {
@@ -292,7 +292,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     // ── select_restaurant ─────────────────────────────────────────────────────
     case "select_restaurant": {
       // Match the extracted restaurant name against the session candidate list.
-      const candidates = sessionService.getLastSearchResults(state.sessionId);
+      const candidates = await sessionService.getLastSearchResults(state.sessionId);
       const nameHint = entities.restaurant ?? state.userMessage;
       const match = matchRestaurantSelection(nameHint, candidates);
       return {
@@ -317,7 +317,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
       let menuItemQuery = strippedItem ?? addCartFallback?.itemQuery ?? null;
 
       // Reference resolution: fill empty menuItemQuery from memory.
-      const addSession = sessionService.getSession(state.sessionId);
+      const addSession = await sessionService.getSession(state.sessionId);
       if ((!menuItemQuery || menuItemQuery === "") && addSession) {
         const ref = resolveReference(state.userMessage, addSession);
         if (ref) menuItemQuery = ref.itemName;
@@ -352,7 +352,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
       let menuItemQuery = strippedItem ?? addAnotherFallback?.itemQuery ?? null;
 
       // Reference resolution: fill empty menuItemQuery from memory.
-      const anotherSession = sessionService.getSession(state.sessionId);
+      const anotherSession = await sessionService.getSession(state.sessionId);
       if ((!menuItemQuery || menuItemQuery === "") && anotherSession) {
         const ref = resolveReference(state.userMessage, anotherSession);
         if (ref) menuItemQuery = ref.itemName;
@@ -384,7 +384,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
       let menuItemQuery = strippedItem ?? removeFallback?.itemQuery ?? null;
 
       // Reference resolution: fill empty menuItemQuery from memory.
-      const removeSession = sessionService.getSession(state.sessionId);
+      const removeSession = await sessionService.getSession(state.sessionId);
       if ((!menuItemQuery || menuItemQuery === "") && removeSession) {
         const ref = resolveReference(state.userMessage, removeSession);
         if (ref) menuItemQuery = ref.itemName;
@@ -423,7 +423,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
       let menuItemQuery = strippedItem ?? setQtyFallback?.itemQuery ?? null;
 
       // Reference resolution: fill empty menuItemQuery from memory.
-      const setQtySession = sessionService.getSession(state.sessionId);
+      const setQtySession = await sessionService.getSession(state.sessionId);
       if ((!menuItemQuery || menuItemQuery === "") && setQtySession) {
         const ref = resolveReference(state.userMessage, setQtySession);
         if (ref) menuItemQuery = ref.itemName;
@@ -454,6 +454,6 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     // ── unknown / unhandled ───────────────────────────────────────────────────
     default:
       console.log(`[Planner] Unhandled intent "${intentResult.intent}", using keyword fallback.`);
-      return fallbackKeywordPlanner(state);
+      return await fallbackKeywordPlanner(state);
   }
 }

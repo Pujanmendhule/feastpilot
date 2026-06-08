@@ -77,14 +77,14 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
     const toolResult = await searchRestaurants({ query });
 
     if (toolResult.success && toolResult.data.length > 0) {
-      sessionService.setLastSearchResults(
+      await sessionService.setLastSearchResults(
         state.sessionId,
         toolResult.data.map((restaurant) => ({
           id: restaurant.id,
           name: restaurant.name,
         }))
       );
-      sessionService.setAwaitingRestaurantSelection(state.sessionId, true);
+      await sessionService.setAwaitingRestaurantSelection(state.sessionId, true);
     }
 
     return {
@@ -97,14 +97,14 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
 
   // ── selectRestaurant ─────────────────────────────────────────────────────
   if (state.plannedTool === "selectRestaurant") {
-    const candidates = sessionService.getLastSearchResults(state.sessionId);
+    const candidates = await sessionService.getLastSearchResults(state.sessionId);
     const match = candidates.find(
       (candidate) => candidate.id === state.restaurantId
     );
 
     if (match) {
-      sessionService.setSelectedRestaurant(state.sessionId, match.id);
-      sessionService.setAwaitingRestaurantSelection(state.sessionId, false);
+      await sessionService.setSelectedRestaurant(state.sessionId, match.id);
+      await sessionService.setAwaitingRestaurantSelection(state.sessionId, false);
 
       return {
         ...state,
@@ -133,7 +133,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
     const toolResult = await getMenu({ restaurantId: state.restaurantId });
 
     if (toolResult.success && toolResult.data.length > 0) {
-      sessionService.setLastViewedMenuItems(
+      await sessionService.setLastViewedMenuItems(
         state.sessionId,
         toolResult.data.map((item) => ({
           id: item.id,
@@ -152,7 +152,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
 
   // ── getCart ──────────────────────────────────────────────────────────────
   if (state.plannedTool === "getCart") {
-    const session = sessionService.getSession(state.sessionId);
+    const session = await sessionService.getSession(state.sessionId);
     const cartId = session?.cartId ?? null;
 
     if (!cartId) {
@@ -220,7 +220,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
     }
 
     // Update conversational memory with the resolved item.
-    sessionService.setLastReferencedItem(
+    await sessionService.setLastReferencedItem(
       state.sessionId,
       resolved.menuItemId,
       resolved.itemName
@@ -254,7 +254,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
       };
     }
 
-    const session = sessionService.getSession(state.sessionId);
+    const session = await sessionService.getSession(state.sessionId);
     const cartId = session?.cartId ?? null;
 
     if (!cartId) {
@@ -283,7 +283,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
     }
 
     // Update conversational memory with the resolved item.
-    const sess = sessionService.getSession(state.sessionId);
+    const sess = await sessionService.getSession(state.sessionId);
     if (sess) {
       const remainingItems = cartResult.data?.items ?? [];
       if (remainingItems.length > 0) {
@@ -292,11 +292,9 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
           (i) => i.id === lastItem.menuItemId
         );
         const itemName = cachedItem?.name ?? lastItem.menuItemId;
-        sess.lastReferencedMenuItemId = lastItem.menuItemId;
-        sess.lastReferencedMenuItemName = itemName;
+        await sessionService.setLastReferencedItem(state.sessionId, lastItem.menuItemId, itemName);
       } else {
-        sess.lastReferencedMenuItemId = null;
-        sess.lastReferencedMenuItemName = null;
+        await sessionService.setLastReferencedItem(state.sessionId, null, null);
       }
     }
 
@@ -327,7 +325,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
       };
     }
 
-    const session = sessionService.getSession(state.sessionId);
+    const session = await sessionService.getSession(state.sessionId);
     const cartId = session?.cartId ?? null;
 
     if (!cartId) {
@@ -360,7 +358,7 @@ export async function toolNode(state: AgentState): Promise<AgentState> {
     }
 
     // Update conversational memory with the resolved item.
-    sessionService.setLastReferencedItem(
+    await sessionService.setLastReferencedItem(
       state.sessionId,
       resolved.menuItemId,
       resolved.itemName

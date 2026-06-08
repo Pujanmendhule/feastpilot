@@ -60,14 +60,14 @@ async function send(sessionId: string, message: string): Promise<string> {
   return result.response;
 }
 
-function getCart(sessionId: string) {
-  const session = sessionService.getSession(sessionId);
+async function getCart(sessionId: string) {
+  const session = await sessionService.getSession(sessionId);
   if (!session?.cartId) return undefined;
-  return cartService.getCart(session.cartId);
+  return await cartService.getCart(session.cartId);
 }
 
 function cartItemQuantity(
-  cart: NonNullable<ReturnType<typeof getCart>>,
+  cart: NonNullable<Awaited<ReturnType<typeof getCart>>>,
   menuItemId: string
 ): number {
   const line = cart.items.find(
@@ -78,7 +78,7 @@ function cartItemQuantity(
 }
 
 function hasCartItem(
-  cart: NonNullable<ReturnType<typeof getCart>>,
+  cart: NonNullable<Awaited<ReturnType<typeof getCart>>>,
   menuItemId: string
 ): boolean {
   return cartItemQuantity(cart, menuItemId) > 0;
@@ -88,11 +88,11 @@ function hasCartItem(
 
 async function runMainWorkflow(): Promise<void> {
   // TEST 1 — Session Lifecycle
-  const session = sessionService.createSession();
+  const session = await sessionService.createSession();
   const sessionId = session.id;
 
   const test1Pass =
-    sessionService.getSession(sessionId) !== undefined &&
+    (await sessionService.getSession(sessionId)) !== undefined &&
     session.selectedRestaurantId === null &&
     session.cartId === null &&
     session.awaitingRestaurantSelection === false;
@@ -102,14 +102,14 @@ async function runMainWorkflow(): Promise<void> {
     test1Pass,
     test1Pass
       ? undefined
-      : `session=${!!sessionService.getSession(sessionId)}, restaurant=${session.selectedRestaurantId}, cart=${session.cartId}, awaiting=${session.awaitingRestaurantSelection}`
+      : `session=${!!(await sessionService.getSession(sessionId))}, restaurant=${session.selectedRestaurantId}, cart=${session.cartId}, awaiting=${session.awaitingRestaurantSelection}`
   );
 
   // TEST 2 — Restaurant Search
   const searchMessage = "I want biryani";
   const expectedQuery = extractSearchQuery(searchMessage);
   const searchResponse = await send(sessionId, searchMessage);
-  const afterSearch = sessionService.getSession(sessionId)!;
+  const afterSearch = (await sessionService.getSession(sessionId))!;
 
   const test2Pass =
     expectedQuery === "biryani" &&
@@ -128,7 +128,7 @@ async function runMainWorkflow(): Promise<void> {
 
   // TEST 3 — Restaurant Selection
   await send(sessionId, "Behrouz");
-  const afterSelect = sessionService.getSession(sessionId)!;
+  const afterSelect = (await sessionService.getSession(sessionId))!;
 
   const test3Pass =
     afterSelect.selectedRestaurantId === RESTAURANT_ID &&
@@ -144,7 +144,7 @@ async function runMainWorkflow(): Promise<void> {
 
   // TEST 4 — Menu Retrieval
   const menuResponse = await send(sessionId, "show menu");
-  const afterMenu = sessionService.getSession(sessionId)!;
+  const afterMenu = (await sessionService.getSession(sessionId))!;
 
   const test4Pass =
     afterMenu.lastViewedMenuItems.length > 0 &&
@@ -165,8 +165,8 @@ async function runMainWorkflow(): Promise<void> {
   // TEST 5 — Add Item
   let subtotalBefore = 0;
   const addChickenResponse = await send(sessionId, "add chicken biryani");
-  const afterAdd1 = sessionService.getSession(sessionId)!;
-  const cartAfterAdd1 = getCart(sessionId);
+  const afterAdd1 = (await sessionService.getSession(sessionId))!;
+  const cartAfterAdd1 = await getCart(sessionId);
 
   const test5Pass =
     afterAdd1.cartId !== null &&
@@ -187,7 +187,7 @@ async function runMainWorkflow(): Promise<void> {
 
   // TEST 6 — Add Second Item
   const addGulabResponse = await send(sessionId, "add gulab jamun");
-  const cartAfterAdd2 = getCart(sessionId)!;
+  const cartAfterAdd2 = (await getCart(sessionId))!;
 
   const test6Pass =
     hasCartItem(cartAfterAdd2, GULAB_JAMUN_ID) &&
@@ -206,7 +206,7 @@ async function runMainWorkflow(): Promise<void> {
 
   // TEST 7 — Increase Quantity
   const addAnotherResponse = await send(sessionId, "add another chicken biryani");
-  const cartAfterAdd3 = getCart(sessionId)!;
+  const cartAfterAdd3 = (await getCart(sessionId))!;
   const chickenQtyAfter7 = cartItemQuantity(cartAfterAdd3, CHICKEN_BIRYANI_ID);
   const expectedSubtotal7 =
     CHICKEN_BIRYANI_PRICE * 2 + GULAB_JAMUN_PRICE;
@@ -247,7 +247,7 @@ async function runMainWorkflow(): Promise<void> {
     sessionId,
     "change chicken biryani quantity to 3"
   );
-  const cartAfterSetQty = getCart(sessionId)!;
+  const cartAfterSetQty = (await getCart(sessionId))!;
   const chickenQtyAfter9 = cartItemQuantity(cartAfterSetQty, CHICKEN_BIRYANI_ID);
   const expectedSubtotal9 =
     CHICKEN_BIRYANI_PRICE * 3 + GULAB_JAMUN_PRICE;
@@ -267,7 +267,7 @@ async function runMainWorkflow(): Promise<void> {
   // TEST 10 — Remove Item
   const subtotalBeforeRemove = cartAfterSetQty.subtotal;
   const removeResponse = await send(sessionId, "remove gulab jamun");
-  const cartAfterRemove = getCart(sessionId)!;
+  const cartAfterRemove = (await getCart(sessionId))!;
   const expectedSubtotal10 = CHICKEN_BIRYANI_PRICE * 3;
 
   const test10Pass =
@@ -285,7 +285,7 @@ async function runMainWorkflow(): Promise<void> {
 
   // TEST 11 — Final Cart Validation
   const finalCartResponse = await send(sessionId, "show cart");
-  const finalCart = getCart(sessionId)!;
+  const finalCart = (await getCart(sessionId))!;
   const finalChickenQty = cartItemQuantity(finalCart, CHICKEN_BIRYANI_ID);
 
   const test11Pass =
@@ -311,9 +311,9 @@ async function runMainWorkflow(): Promise<void> {
 async function runEdgeCaseTests(): Promise<void> {
   // Edge 1 — show menu without prior restaurant selection
   {
-    const session = sessionService.createSession();
+    const session = await sessionService.createSession();
     const response = await send(session.id, "show menu");
-    const after = sessionService.getSession(session.id)!;
+    const after = (await sessionService.getSession(session.id))!;
 
     const passed =
       after.selectedRestaurantId === null &&
@@ -334,7 +334,7 @@ async function runEdgeCaseTests(): Promise<void> {
 
   // Edge 2 — remove nonexistent item
   {
-    const session = sessionService.createSession();
+    const session = await sessionService.createSession();
     await send(session.id, "I want biryani");
     await send(session.id, "Behrouz");
     await send(session.id, "add chicken biryani");
@@ -357,10 +357,10 @@ async function runEdgeCaseTests(): Promise<void> {
 
   // Edge 3 — invalid restaurant selection
   {
-    const session = sessionService.createSession();
+    const session = await sessionService.createSession();
     await send(session.id, "I want biryani");
     const response = await send(session.id, "Totally Invalid Restaurant XYZ");
-    const after = sessionService.getSession(session.id)!;
+    const after = (await sessionService.getSession(session.id))!;
 
     const passed =
       after.awaitingRestaurantSelection === true &&
@@ -378,7 +378,7 @@ async function runEdgeCaseTests(): Promise<void> {
 
   // Edge 4 — empty cart
   {
-    const session = sessionService.createSession();
+    const session = await sessionService.createSession();
     const response = await send(session.id, "show cart");
     const lower = response.toLowerCase();
 
@@ -396,7 +396,7 @@ async function runEdgeCaseTests(): Promise<void> {
 // ── Conversational memory tests (isolated sessions) ──────────────────────────
 
 async function setupSessionWithRestaurant(): Promise<string> {
-  const session = sessionService.createSession();
+  const session = await sessionService.createSession();
   await send(session.id, "I want biryani");
   await send(session.id, "Behrouz");
   await send(session.id, "show menu");
@@ -410,7 +410,7 @@ async function runConversationalMemoryTests(): Promise<void> {
     await send(sessionId, "add chicken biryani");
     const addMoreResponse = await send(sessionId, "add one more");
     await send(sessionId, "show cart");
-    const cart = getCart(sessionId);
+    const cart = await getCart(sessionId);
 
     const qty = cart ? cartItemQuantity(cart, CHICKEN_BIRYANI_ID) : 0;
     const passed =
@@ -432,7 +432,7 @@ async function runConversationalMemoryTests(): Promise<void> {
     await send(sessionId, "add chicken biryani");
     const makeItResponse = await send(sessionId, "make it 3");
     await send(sessionId, "show cart");
-    const cart = getCart(sessionId);
+    const cart = await getCart(sessionId);
 
     const qty = cart ? cartItemQuantity(cart, CHICKEN_BIRYANI_ID) : 0;
     const passed =
@@ -454,7 +454,7 @@ async function runConversationalMemoryTests(): Promise<void> {
     await send(sessionId, "add chicken biryani");
     const removeResponse = await send(sessionId, "remove it");
     const cartResponse = await send(sessionId, "show cart");
-    const cart = getCart(sessionId);
+    const cart = await getCart(sessionId);
 
     const isEmpty = !cart || cart.items.length === 0;
     const passed =
@@ -476,7 +476,7 @@ async function runConversationalMemoryTests(): Promise<void> {
     await send(sessionId, "add chicken biryani");
     await send(sessionId, "add gulab jamun");
     const removeResponse = await send(sessionId, "remove it");
-    const cart = getCart(sessionId);
+    const cart = await getCart(sessionId);
 
     const hasChicken = cart ? hasCartItem(cart, CHICKEN_BIRYANI_ID) : false;
     const hasGulab = cart ? hasCartItem(cart, GULAB_JAMUN_ID) : false;

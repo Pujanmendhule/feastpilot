@@ -1,57 +1,61 @@
 import type { Cart, CartItem } from "../types/cart";
 import { MockMenuService } from "./MockMenuService";
+import { prisma } from "../db/prisma";
+import type { Cart as PrismaCart, CartItem as PrismaCartItem } from "@prisma/client";
 
 function generateCartId(): string {
   return `cart_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
-function recalculateSubtotal(items: CartItem[]): number {
-  return items.reduce(
-    (total, item) => total + item.quantity * item.unitPrice,
-    0
-  );
-}
+type PrismaCartWithItems = PrismaCart & { items: PrismaCartItem[] };
 
-function findCartLineIndex(
-  items: CartItem[],
-  restaurantId: string,
-  menuItemId: string
-): number {
-  return items.findIndex(
-    (item) =>
-      item.restaurantId === restaurantId &&
-      item.menuItemId === menuItemId
-  );
+/** Map a Prisma Cart row (with items) to the in-memory Cart interface. */
+function toCart(row: PrismaCartWithItems): Cart {
+  const items: CartItem[] = row.items.map((i) => ({
+    restaurantId: i.restaurantId,
+    menuItemId: i.menuItemId,
+    quantity: i.quantity,
+    unitPrice: i.unitPrice,
+  }));
+
+  const restaurants = [...new Set(items.map((i) => i.restaurantId))];
+
+  return {
+    id: row.id,
+    restaurants,
+    items,
+    subtotal: row.subtotal,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 export class CartService {
-  private readonly carts = new Map<string, Cart>();
   private readonly menuService = new MockMenuService();
 
-  createCart(): Cart {
-    const cart: Cart = {
-      id: generateCartId(),
-      restaurants: [],
-      items: [],
-      subtotal: 0,
-      createdAt: new Date().toISOString(),
-    };
-
-    this.carts.set(cart.id, cart);
-    return cart;
+  async createCart(): Promise<Cart> {
+    const id = generateCartId();
+    const row = await prisma.cart.create({
+      data: { id },
+      include: { items: true },
+    });
+    return toCart(row);
   }
 
-  getCart(cartId: string): Cart | undefined {
-    return this.carts.get(cartId);
+  async getCart(cartId: string): Promise<Cart | undefined> {
+    const row = await prisma.cart.findUnique({
+      where: { id: cartId },
+      include: { items: true },
+    });
+    return row ? toCart(row) : undefined;
   }
 
-  addItem(
+  async addItem(
     cartId: string,
     restaurantId: string,
     menuItemId: string,
     quantity: number
-  ): Cart {
-    const cart = this.carts.get(cartId);
+  ): Promise<Cart> {
+    const cart = await prisma.cart.findUnique({ where: { id: cartId } });
     if (!cart) {
       throw new Error("Cart not found");
     }
@@ -60,48 +64,55 @@ export class CartService {
       throw new Error("Quantity must be greater than zero");
     }
 
-    const menuItem = this.menuService.getMenuItem(
-      restaurantId,
-      menuItemId
-    );
+    const menuItem = this.menuService.getMenuItem(restaurantId, menuItemId);
     if (!menuItem) {
       throw new Error("Menu item not found");
     }
 
-    const existingIndex = findCartLineIndex(
-      cart.items,
-      restaurantId,
-      menuItemId
-    );
-
-    if (existingIndex >= 0) {
-      cart.items[existingIndex].quantity += quantity;
-    } else {
-      cart.items.push({
+    // Upsert: if item already exists, increment quantity; otherwise create it
+    await prisma.cartItem.upsert({
+      where: {
+        cartId_restaurantId_menuItemId: {
+          cartId,
+          restaurantId,
+          menuItemId,
+        },
+      },
+      update: {
+        quantity: { increment: quantity },
+      },
+      create: {
+        cartId,
         restaurantId,
         menuItemId,
         quantity,
         unitPrice: menuItem.price,
-      });
-    }
+      },
+    });
 
-    if (!cart.restaurants.includes(restaurantId)) {
-      cart.restaurants.push(restaurantId);
-    }
-
-    cart.subtotal = recalculateSubtotal(cart.items);
-    this.carts.set(cart.id, cart);
-
-    return cart;
+    // Recalculate subtotal
+    const allItems = await prisma.cartItem.findMany({
+      where: { cartId },
+    });
+    const subtotal = allItems.reduce(
+      (total, item) => total + item.quantity * item.unitPrice,
+      0
+    );
+    const updated = await prisma.cart.update({
+      where: { id: cartId },
+      data: { subtotal },
+      include: { items: true },
+    });
+    return toCart(updated);
   }
 
-  setItemQuantity(
+  async setItemQuantity(
     cartId: string,
     restaurantId: string,
     menuItemId: string,
     quantity: number
-  ): Cart {
-    const cart = this.carts.get(cartId);
+  ): Promise<Cart> {
+    const cart = await prisma.cart.findUnique({ where: { id: cartId } });
     if (!cart) {
       throw new Error("Cart not found");
     }
@@ -110,61 +121,83 @@ export class CartService {
       throw new Error("Quantity must be greater than zero");
     }
 
-    const existingIndex = findCartLineIndex(
-      cart.items,
-      restaurantId,
-      menuItemId
-    );
-
-    if (existingIndex < 0) {
+    const existing = await prisma.cartItem.findUnique({
+      where: {
+        cartId_restaurantId_menuItemId: {
+          cartId,
+          restaurantId,
+          menuItemId,
+        },
+      },
+    });
+    if (!existing) {
       throw new Error("Item not in cart");
     }
 
-    cart.items[existingIndex].quantity = quantity;
-    cart.subtotal = recalculateSubtotal(cart.items);
-    this.carts.set(cart.id, cart);
+    await prisma.cartItem.update({
+      where: { id: existing.id },
+      data: { quantity },
+    });
 
-    return cart;
+    // Recalculate subtotal
+    const allItems = await prisma.cartItem.findMany({
+      where: { cartId },
+    });
+    const subtotal = allItems.reduce(
+      (total, item) => total + item.quantity * item.unitPrice,
+      0
+    );
+    const updated = await prisma.cart.update({
+      where: { id: cartId },
+      data: { subtotal },
+      include: { items: true },
+    });
+    return toCart(updated);
   }
 
-  removeItem(
+  async removeItem(
     cartId: string,
     restaurantId: string,
     menuItemId: string
-  ): Cart {
-    const cart = this.carts.get(cartId);
+  ): Promise<Cart> {
+    const cart = await prisma.cart.findUnique({ where: { id: cartId } });
     if (!cart) {
       throw new Error("Cart not found");
     }
 
-    const beforeCount = cart.items.length;
-    cart.items = cart.items.filter(
-      (item) =>
-        !(
-          item.restaurantId === restaurantId &&
-          item.menuItemId === menuItemId
-        )
-    );
-
-    if (cart.items.length === beforeCount) {
+    const existing = await prisma.cartItem.findUnique({
+      where: {
+        cartId_restaurantId_menuItemId: {
+          cartId,
+          restaurantId,
+          menuItemId,
+        },
+      },
+    });
+    if (!existing) {
       throw new Error("Item not in cart");
     }
 
-    const stillHasRestaurant = cart.items.some(
-      (item) => item.restaurantId === restaurantId
+    await prisma.cartItem.delete({
+      where: { id: existing.id },
+    });
+
+    // Recalculate subtotal
+    const allItems = await prisma.cartItem.findMany({
+      where: { cartId },
+    });
+    const subtotal = allItems.reduce(
+      (total, item) => total + item.quantity * item.unitPrice,
+      0
     );
-    if (!stillHasRestaurant) {
-      cart.restaurants = cart.restaurants.filter(
-        (id) => id !== restaurantId
-      );
-    }
-
-    cart.subtotal = recalculateSubtotal(cart.items);
-    this.carts.set(cart.id, cart);
-
-    return cart;
+    const updated = await prisma.cart.update({
+      where: { id: cartId },
+      data: { subtotal },
+      include: { items: true },
+    });
+    return toCart(updated);
   }
 }
 
-/** Shared in-memory cart store for tools and routes. */
+/** Shared cart store for tools and routes. */
 export const cartService = new CartService();

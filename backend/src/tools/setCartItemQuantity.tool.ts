@@ -38,7 +38,7 @@ export async function setCartItemQuantity(
   }
 
   try {
-    const cart = cartService.setItemQuantity(
+    const cart = await cartService.setItemQuantity(
       cartId,
       restaurantId,
       menuItemId,

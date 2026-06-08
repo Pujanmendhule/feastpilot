@@ -8,7 +8,7 @@ export type CreateCartResult = {
 };
 
 export async function createCart(): Promise<CreateCartResult> {
-  const cart = cartService.createCart();
+  const cart = await cartService.createCart();
 
   return {
     success: true,

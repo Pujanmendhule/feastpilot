@@ -1,0 +1,55 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Session {
+  id                          String    @id
+  cartId                      String?
+  selectedRestaurantId        String?
+  awaitingRestaurantSelection Boolean   @default(false)
+  lastReferencedMenuItemId    String?
+  lastReferencedMenuItemName  String?
+  lastSearchResults           Json      @default("[]")
+  lastViewedMenuItems         Json      @default("[]")
+  preferences                 Json      @default("{}")
+  assumptions                 Json      @default("{}")
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+  messages                    Message[]
+}
+
+model Cart {
+  id        String     @id
+  subtotal  Float      @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     CartItem[]
+}
+
+model CartItem {
+  id           String @id @default(cuid())
+  cartId       String
+  restaurantId String
+  menuItemId   String
+  quantity     Int
+  unitPrice    Float
+  cart         Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, restaurantId, menuItemId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}

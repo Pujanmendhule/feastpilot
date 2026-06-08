@@ -7,8 +7,8 @@ export async function resolveMenuCandidates(
   sessionId: string,
   restaurantId: string
 ): Promise<MenuItemCandidate[]> {
-  const cached = sessionService
-    .getLastViewedMenuItems(sessionId)
+  const cached = (await sessionService
+    .getLastViewedMenuItems(sessionId))
     .filter((item) => item.restaurantId === restaurantId);
 
   if (cached.length > 0) {
@@ -26,6 +26,6 @@ export async function resolveMenuCandidates(
     restaurantId,
   }));
 
-  sessionService.setLastViewedMenuItems(sessionId, items);
+  await sessionService.setLastViewedMenuItems(sessionId, items);
   return items.map(({ id, name }) => ({ id, name }));
 }

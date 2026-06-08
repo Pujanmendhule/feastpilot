@@ -24,7 +24,7 @@ export async function getCart(
     };
   }
 
-  const cart = cartService.getCart(cartId);
+  const cart = await cartService.getCart(cartId);
 
   if (!cart) {
     return {

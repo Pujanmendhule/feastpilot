@@ -2,166 +2,208 @@ import type {
   Session,
   SessionSearchResult,
   SessionMenuItem,
+  SessionMessage,
+  SessionPreferences,
+  SessionAssumptions,
 } from "../types/session";
 import { generateSessionId } from "./sessionId";
+import { prisma } from "../db/prisma";
+import type { Session as PrismaSession, Message as PrismaMessage } from "@prisma/client";
 
-function createEmptySession(id: string): Session {
+type PrismaSessionWithMessages = PrismaSession & { messages: PrismaMessage[] };
+
+/** Map a Prisma Session row (with messages) to the in-memory Session interface. */
+function toSession(row: PrismaSessionWithMessages): Session {
   return {
-    id,
-    cartId: null,
-    selectedRestaurantId: null,
-    awaitingRestaurantSelection: false,
-    lastSearchResults: [],
-    lastViewedMenuItems: [],
-    lastReferencedMenuItemId: null,
-    lastReferencedMenuItemName: null,
-    messages: [],
-    preferences: {},
-    assumptions: {},
-    createdAt: new Date().toISOString(),
+    id: row.id,
+    cartId: row.cartId,
+    selectedRestaurantId: row.selectedRestaurantId,
+    awaitingRestaurantSelection: row.awaitingRestaurantSelection,
+    lastSearchResults: (row.lastSearchResults as unknown) as SessionSearchResult[],
+    lastViewedMenuItems: (row.lastViewedMenuItems as unknown) as SessionMenuItem[],
+    lastReferencedMenuItemId: row.lastReferencedMenuItemId,
+    lastReferencedMenuItemName: row.lastReferencedMenuItemName,
+    messages: row.messages.map((m) => ({
+      id: m.id,
+      role: m.role as SessionMessage["role"],
+      content: m.content,
+      createdAt: m.createdAt.toISOString(),
+    })),
+    preferences: (row.preferences as unknown) as SessionPreferences,
+    assumptions: (row.assumptions as unknown) as SessionAssumptions,
+    createdAt: row.createdAt.toISOString(),
   };
 }
 
 /**
- * In-memory session lifecycle. Accepts an optional Map for unit tests.
+ * PostgreSQL-backed session lifecycle via Prisma.
+ * Public API mirrors the original in-memory SessionService.
  */
 export class SessionService {
-  private readonly sessions: Map<string, Session>;
-
-  constructor(sessions: Map<string, Session> = new Map()) {
-    this.sessions = sessions;
+  async createSession(): Promise<Session> {
+    const id = generateSessionId();
+    const row = await prisma.session.create({
+      data: { id },
+      include: { messages: true },
+    });
+    return toSession(row);
   }
 
-  createSession(): Session {
-    const session = createEmptySession(generateSessionId());
-    this.sessions.set(session.id, session);
-    return session;
+  async getSession(sessionId: string): Promise<Session | undefined> {
+    const row = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { messages: true },
+    });
+    return row ? toSession(row) : undefined;
   }
 
-  getSession(sessionId: string): Session | undefined {
-    return this.sessions.get(sessionId);
+  async attachCartToSession(
+    sessionId: string,
+    cartId: string
+  ): Promise<Session> {
+    const row = await prisma.session.update({
+      where: { id: sessionId },
+      data: { cartId },
+      include: { messages: true },
+    });
+    return toSession(row);
   }
 
-  attachCartToSession(sessionId: string, cartId: string): Session {
-    const session = this.getSession(sessionId);
-    if (!session) {
+  async setSelectedRestaurant(
+    sessionId: string,
+    restaurantId: string
+  ): Promise<Session> {
+    const row = await prisma.session.update({
+      where: { id: sessionId },
+      data: { selectedRestaurantId: restaurantId },
+      include: { messages: true },
+    });
+    return toSession(row);
+  }
+
+  async getSelectedRestaurant(sessionId: string): Promise<string | null> {
+    const row = await prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+    if (!row) {
       throw new Error(`Session not found: ${sessionId}`);
     }
-    session.cartId = cartId;
-    return session;
+    return row.selectedRestaurantId;
   }
 
-  setSelectedRestaurant(sessionId: string, restaurantId: string): Session {
-    const session = this.getSession(sessionId);
-    if (!session) {
-      throw new Error(`Session not found: ${sessionId}`);
-    }
-    session.selectedRestaurantId = restaurantId;
-    return session;
-  }
-
-  getSelectedRestaurant(sessionId: string): string | null {
-    const session = this.getSession(sessionId);
-    if (!session) {
-      throw new Error(`Session not found: ${sessionId}`);
-    }
-    return session.selectedRestaurantId;
-  }
-
-  setAwaitingRestaurantSelection(
+  async setAwaitingRestaurantSelection(
     sessionId: string,
     awaiting: boolean
-  ): Session {
-    const session = this.getSession(sessionId);
-    if (!session) {
-      throw new Error(`Session not found: ${sessionId}`);
-    }
-    session.awaitingRestaurantSelection = awaiting;
-    return session;
+  ): Promise<Session> {
+    const row = await prisma.session.update({
+      where: { id: sessionId },
+      data: { awaitingRestaurantSelection: awaiting },
+      include: { messages: true },
+    });
+    return toSession(row);
   }
 
-  isAwaitingRestaurantSelection(sessionId: string): boolean {
-    const session = this.getSession(sessionId);
-    if (!session) {
+  async isAwaitingRestaurantSelection(sessionId: string): Promise<boolean> {
+    const row = await prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+    if (!row) {
       throw new Error(`Session not found: ${sessionId}`);
     }
-    return session.awaitingRestaurantSelection;
+    return row.awaitingRestaurantSelection;
   }
 
-  setLastSearchResults(
+  async setLastSearchResults(
     sessionId: string,
     results: SessionSearchResult[]
-  ): Session {
-    const session = this.getSession(sessionId);
-    if (!session) {
-      throw new Error(`Session not found: ${sessionId}`);
-    }
-    session.lastSearchResults = results;
-    return session;
+  ): Promise<Session> {
+    const row = await prisma.session.update({
+      where: { id: sessionId },
+      data: { lastSearchResults: results as any },
+      include: { messages: true },
+    });
+    return toSession(row);
   }
 
-  getLastSearchResults(sessionId: string): SessionSearchResult[] {
-    const session = this.getSession(sessionId);
-    if (!session) {
+  async getLastSearchResults(
+    sessionId: string
+  ): Promise<SessionSearchResult[]> {
+    const row = await prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+    if (!row) {
       throw new Error(`Session not found: ${sessionId}`);
     }
-    return session.lastSearchResults;
+    return (row.lastSearchResults as unknown) as SessionSearchResult[];
   }
 
-  setLastViewedMenuItems(
+  async setLastViewedMenuItems(
     sessionId: string,
     items: SessionMenuItem[]
-  ): Session {
-    const session = this.getSession(sessionId);
-    if (!session) {
-      throw new Error(`Session not found: ${sessionId}`);
-    }
-    session.lastViewedMenuItems = items;
-    return session;
+  ): Promise<Session> {
+    const row = await prisma.session.update({
+      where: { id: sessionId },
+      data: { lastViewedMenuItems: items as any },
+      include: { messages: true },
+    });
+    return toSession(row);
   }
 
-  getLastViewedMenuItems(sessionId: string): SessionMenuItem[] {
-    const session = this.getSession(sessionId);
-    if (!session) {
-      throw new Error(`Session not found: ${sessionId}`);
-    }
-    return session.lastViewedMenuItems;
-  }
-
-  setLastReferencedItem(
-    sessionId: string,
-    itemId: string,
-    itemName: string
-  ): Session {
-    const session = this.getSession(sessionId);
-    if (!session) {
-      throw new Error(`Session not found: ${sessionId}`);
-    }
-    session.lastReferencedMenuItemId = itemId;
-    session.lastReferencedMenuItemName = itemName;
-    return session;
-  }
-
-  getLastReferencedItem(
+  async getLastViewedMenuItems(
     sessionId: string
-  ): { itemId: string; itemName: string } | null {
-    const session = this.getSession(sessionId);
-    if (!session) {
+  ): Promise<SessionMenuItem[]> {
+    const row = await prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+    if (!row) {
       throw new Error(`Session not found: ${sessionId}`);
     }
-    if (!session.lastReferencedMenuItemId || !session.lastReferencedMenuItemName) {
+    return (row.lastViewedMenuItems as unknown) as SessionMenuItem[];
+  }
+
+  async setLastReferencedItem(
+    sessionId: string,
+    itemId: string | null,
+    itemName: string | null
+  ): Promise<Session> {
+    const row = await prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        lastReferencedMenuItemId: itemId,
+        lastReferencedMenuItemName: itemName,
+      },
+      include: { messages: true },
+    });
+    return toSession(row);
+  }
+
+  async getLastReferencedItem(
+    sessionId: string
+  ): Promise<{ itemId: string; itemName: string } | null> {
+    const row = await prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+    if (!row) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    if (!row.lastReferencedMenuItemId || !row.lastReferencedMenuItemName) {
       return null;
     }
     return {
-      itemId: session.lastReferencedMenuItemId,
-      itemName: session.lastReferencedMenuItemName,
+      itemId: row.lastReferencedMenuItemId,
+      itemName: row.lastReferencedMenuItemName,
     };
   }
 
-  deleteSession(sessionId: string): boolean {
-    return this.sessions.delete(sessionId);
+  async deleteSession(sessionId: string): Promise<boolean> {
+    try {
+      await prisma.session.delete({ where: { id: sessionId } });
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
-/** Shared in-memory session store for routes and agent. */
+/** Shared session store for routes and agent. */
 export const sessionService = new SessionService();

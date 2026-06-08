@@ -24,7 +24,7 @@ conversationRouter.post("/api/conversation", async (req, res, next) => {
       return;
     }
 
-    const session = sessionService.getSession(sessionId);
+    const session = await sessionService.getSession(sessionId);
     if (!session) {
       res.status(404).json({
         success: false,
