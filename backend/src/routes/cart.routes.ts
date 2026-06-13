@@ -66,7 +66,7 @@ cartRouter.get("/api/carts/:cartId", async (req, res, next) => {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         totalPrice: item.quantity * item.unitPrice,
-        description: menuItem?.description ?? "",
+        description: "",
         isVegetarian: menuItem?.isVegetarian ?? false,
       };
     });

@@ -1,32 +1,42 @@
-import { ShoppingBag } from "lucide-react";
+import { type ApiCart } from "../../services/api";
+import { ShoppingCart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { MockCart } from "@/features/session/sessionState";
 
 type CartHeaderProps = {
-  cart: MockCart;
+  cart: ApiCart;
 };
 
 export function CartHeader({ cart }: CartHeaderProps) {
-  const itemCount = cart.restaurantGroups.reduce(
-    (total, group) => total + group.items.reduce((sum, item) => sum + item.quantity, 0),
-    0,
-  );
+  const itemCount = cart.items.reduce((sum, i) => sum + i.quantity, 0);
+  const restaurantCount = cart.restaurants.length;
 
   return (
-    <header className="border-b border-border bg-background px-4 py-4">
+    <header className="border-b border-border/60 bg-card/50 px-4 py-4 shrink-0">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
-            <ShoppingBag className="h-5 w-5" />
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
+            <ShoppingCart className="h-5 w-5 text-primary" />
+            {itemCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-extrabold text-primary-foreground shadow-sm">
+                {itemCount}
+              </span>
+            )}
           </div>
           <div>
-            <h2 className="text-base font-semibold">Cart plan</h2>
-            <p className="text-sm text-muted-foreground">
-              {itemCount} items for {cart.peopleCount} people
+            <h2 className="text-sm font-extrabold text-foreground">Your Cart</h2>
+            <p className="text-[10px] text-muted-foreground font-medium">
+              {restaurantCount > 0
+                ? `${restaurantCount} restaurant${restaurantCount > 1 ? "s" : ""}`
+                : "Empty"}
             </p>
           </div>
         </div>
-        <Badge variant="outline">{cart.status}</Badge>
+        <Badge
+          variant="outline"
+          className="text-[10px] font-bold border-primary/20 text-primary bg-primary/5"
+        >
+          ₹{cart.subtotal.toFixed(0)}
+        </Badge>
       </div>
     </header>
   );

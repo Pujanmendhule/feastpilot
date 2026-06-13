@@ -76,8 +76,8 @@ export function AssistantMessageBubble({ message, isLatest }: AssistantMessageBu
   const renderSpecialCards = () => {
     if (!isLatest || !session) return null;
 
-    // 1. Awaiting clarification veg/non-veg/any
-    if (session.awaitingRecommendationClarification) {
+    // 1. Awaiting recommendation refinement clarification
+    if (session.awaitingRecommendationRefinement) {
       return <ClarificationCard />;
     }
 
