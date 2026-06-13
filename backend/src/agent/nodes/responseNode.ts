@@ -5,6 +5,7 @@ import type {
 } from "../types/toolResults";
 import type { SearchRestaurantsResult, GetMenuResult } from "../tools";
 import { formatCartSummary } from "../utils/cartRenderer";
+import type { RecommendationResult } from "../utils/recommendationEngine";
 
 const MAX_ITEMS = 5;
 
@@ -144,7 +145,13 @@ function renderCartOperationResult(result: CartOperationResult): string {
 export async function responseNode(state: AgentState): Promise<AgentState> {
   let agentResponse: string;
 
-  if (state.toolResult === undefined) {
+  // ── Recommendation response (highest priority when result is set) ──────────
+  if (state.recommendationResult !== null && state.recommendationResult !== undefined) {
+    agentResponse = state.recommendationResult.rationale;
+  } else if (state.plannedTool === "recommend") {
+    // Engine ran but found nothing
+    agentResponse = "I couldn't find a suitable recommendation based on the current menu. Try asking for something specific like a dessert or a vegetarian option.";
+  } else if (state.toolResult === undefined) {
     agentResponse = "LangGraph response pipeline active.";
   } else if (isCartOperationResult(state.toolResult)) {
     agentResponse = renderCartOperationResult(state.toolResult);

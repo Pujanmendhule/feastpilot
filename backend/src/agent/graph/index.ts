@@ -3,6 +3,7 @@ import { plannerNode } from "../nodes/plannerNode";
 import { toolNode } from "../nodes/toolNode";
 import { responseNode } from "../nodes/responseNode";
 import type { CartAction } from "../types/toolResults";
+import type { RecommendationResult } from "../utils/recommendationEngine";
 
 // ── State Annotation ─────────────────────────────────────────────────────────
 //
@@ -78,6 +79,14 @@ const AgentStateAnnotation = Annotation.Root({
   intentConfidence: Annotation<number | undefined>({
     reducer: (_prev, next) => next,
     default: () => undefined,
+  }),
+  recommendationType: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+  recommendationResult: Annotation<RecommendationResult | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
   }),
 });
 

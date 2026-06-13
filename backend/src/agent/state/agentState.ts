@@ -1,5 +1,6 @@
 import { DEFAULT_QUANTITY } from "../constants";
 import type { CartAction } from "../types/toolResults";
+import type { RecommendationResult } from "../utils/recommendationEngine";
 
 // LangGraph state definition (type-only, no runtime logic)
 
@@ -48,6 +49,17 @@ export interface AgentState {
    * planner is used (which always returns confidence=1 from MockProvider).
    */
   intentConfidence?: number;
+  /**
+   * The type of recommendation requested by the user.
+   * Set by plannerNode when a recommendation query is detected.
+   * null when the current turn is not a recommendation request.
+   */
+  recommendationType: string | null;
+  /**
+   * The result produced by the recommendation engine.
+   * Set by toolNode when plannedTool === "recommend".
+   */
+  recommendationResult: RecommendationResult | null;
 }
 
 /**
@@ -74,5 +86,7 @@ export function createInitialState(
     resolvedMenuItemName: null,
     intent: undefined,
     intentConfidence: undefined,
+    recommendationType: null,
+    recommendationResult: null,
   };
 }

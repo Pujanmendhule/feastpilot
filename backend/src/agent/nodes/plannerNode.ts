@@ -7,6 +7,7 @@ import { resolveReference, extractAbsoluteQuantity, isIncrementalAdd } from "../
 import { sessionService } from "../../services/SessionService";
 import { modelService } from "../../services/models/ModelService";
 import type { EntityExtractionResult, IntentResult } from "../../services/models/types";
+import { detectRecommendation } from "../utils/recommendationDetector";
 
 /** Minimum confidence for the Azure result to be used as primary source. */
 const CONFIDENCE_THRESHOLD = 0.6;
@@ -208,6 +209,23 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
       ...state,
       plannedTool: "selectRestaurant",
       restaurantId: match?.id ?? null,
+      toolCalls: [...state.toolCalls, "planner"],
+    };
+  }
+
+  // ── Recommendation detection (before ModelService) ─────────────────────────
+  // Detects recommendation queries purely from keywords; bypasses intent
+  // classification so ordering intents are never disturbed.
+  const recommendationQuery = detectRecommendation(state.userMessage);
+  if (recommendationQuery) {
+    console.log(`[Planner] Recommendation detected: type=${recommendationQuery.type}`);
+    return {
+      ...state,
+      plannedTool: "recommend",
+      recommendationType: recommendationQuery.type,
+      // Store budget/pairing parameters in existing state slots to avoid bloat
+      searchQuery: recommendationQuery.referenceItem ?? state.searchQuery,
+      quantity: recommendationQuery.budgetAmount ?? state.quantity,
       toolCalls: [...state.toolCalls, "planner"],
     };
   }

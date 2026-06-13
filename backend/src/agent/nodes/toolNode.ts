@@ -13,6 +13,14 @@ import { extractSearchQuery } from "../utils/queryExtractor";
 import { matchMenuItem } from "../utils/menuItemMatcher";
 import { resolveMenuCandidates } from "../utils/menuResolver";
 import { ensureSessionCart } from "../utils/ensureSessionCart";
+import {
+  recommendSpicy,
+  recommendVegetarian,
+  recommendDessert,
+  recommendPairing,
+  recommendBudget,
+  recommendValue,
+} from "../utils/recommendationEngine";
 
 function buildCartError(
   action: CartOperationResult["action"],
@@ -70,6 +78,44 @@ async function resolveMenuItemForCart(
  * Executes the tool chosen by the Planner Node.
  */
 export async function toolNode(state: AgentState): Promise<AgentState> {
+
+  // ── recommend ──────────────────────────────────────────────────
+  if (state.plannedTool === "recommend") {
+    // Resolve restaurant context from session
+    const session = await sessionService.getSession(state.sessionId);
+    const contextRestaurantId = session?.selectedRestaurantId ?? state.restaurantId;
+
+    let recommendationResult = null;
+    const rType = state.recommendationType;
+
+    if (rType === "spicy") {
+      recommendationResult = recommendSpicy(contextRestaurantId);
+    } else if (rType === "vegetarian") {
+      recommendationResult = recommendVegetarian(contextRestaurantId);
+    } else if (rType === "dessert") {
+      recommendationResult = recommendDessert(contextRestaurantId);
+    } else if (rType === "pairing") {
+      // searchQuery holds the pairing reference item name
+      recommendationResult = recommendPairing(
+        state.searchQuery ?? "",
+        contextRestaurantId
+      );
+    } else if (rType === "budget") {
+      // quantity field holds the budget ceiling
+      recommendationResult = recommendBudget(
+        state.quantity,
+        contextRestaurantId
+      );
+    } else if (rType === "value") {
+      recommendationResult = recommendValue(contextRestaurantId);
+    }
+
+    return {
+      ...state,
+      recommendationResult,
+      toolCalls: [...state.toolCalls, "recommend"],
+    };
+  }
 
   // ── searchRestaurants ────────────────────────────────────────────────────
   if (state.plannedTool === "searchRestaurants") {
