@@ -3,6 +3,7 @@ import express from "express";
 import { healthRouter } from "../routes/health.routes";
 import { sessionRouter } from "../routes/session.routes";
 import { conversationRouter } from "../routes/conversation.routes";
+import { cartRouter } from "../routes/cart.routes";
 import { errorHandler } from "./errors";
 
 export function createApp() {
@@ -14,6 +15,7 @@ export function createApp() {
   app.use(healthRouter);
   app.use(sessionRouter);
   app.use(conversationRouter);
+  app.use(cartRouter);
 
 
   if (process.env.NODE_ENV === "development") {
