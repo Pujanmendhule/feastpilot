@@ -7,7 +7,6 @@ import { Badge } from "../../components/ui/badge";
 import { Star, Clock, ShoppingCart, Check, AlertCircle, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 
-// ─── 1. RESTAURANT CARD LIST ───
 export function RestaurantCardsList({ candidates }: { candidates: { id: string; name: string }[] }) {
   const { sendMessage } = useSessionContext();
   const [allRestaurants, setAllRestaurants] = useState<ApiRestaurant[]>([]);
@@ -69,7 +68,6 @@ export function RestaurantCardsList({ candidates }: { candidates: { id: string; 
   );
 }
 
-// ─── 2. MENU ITEM CARD LIST ───
 export function MenuItemCardsList({ items, restaurantId }: { items: { id: string; name: string; restaurantId: string }[]; restaurantId: string }) {
   const { addRecommendedItemToCart, isCartLoading } = useSessionContext();
   const [fullItems, setFullItems] = useState<ApiMenuItem[]>([]);
@@ -117,7 +115,7 @@ export function MenuItemCardsList({ items, restaurantId }: { items: { id: string
                 <h4 className="text-xs font-semibold text-foreground">{item.name}</h4>
               </div>
               <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{description}</p>
-              <div className="mt-2 text-xs font-bold text-foreground">₹{price}</div>
+              <div className="mt-2 text-xs font-bold text-foreground">{"\u20B9"}{price}</div>
             </div>
             <Button
               size="sm"
@@ -145,21 +143,25 @@ export function MenuItemCardsList({ items, restaurantId }: { items: { id: string
   );
 }
 
-// ─── 3. AI RECOMMENDATION CARD ───
-export function RecommendationCard({ recommendation }: { recommendation: { type: string; item: any; restaurantId: string; rationale: string; pairedWith?: string } }) {
+export function RecommendationCard({ recommendation }: { recommendation: { type: string; item?: any; restaurantId?: string; rationale?: string; pairedWith?: string } }) {
   const { addRecommendedItemToCart, isCartLoading } = useSessionContext();
   const [isAdded, setIsAdded] = useState(false);
 
   const item = recommendation.item;
-  const name = item?.name ?? "Recommended Item";
-  const price = item?.price ?? 299;
-  const description = item?.description ?? "Crispy, delicious, and perfectly balanced flavors.";
-  const isVeg = item?.isVegetarian ?? false;
-  const rationale = recommendation.rationale;
+  const name = typeof item?.name === "string" ? item.name : null;
+  const price = typeof item?.price === "number" ? item.price : null;
+  const description = typeof item?.description === "string" ? item.description : null;
+  const isVeg = typeof item?.isVegetarian === "boolean" ? item.isVegetarian : null;
+  const rationale = typeof recommendation.rationale === "string" ? recommendation.rationale : null;
+  const canAddToCart =
+    typeof recommendation.restaurantId === "string" &&
+    typeof item?.id === "string";
 
   const handleAddToCart = async () => {
+    if (!canAddToCart) return;
+
     try {
-      await addRecommendedItemToCart(recommendation.restaurantId, item.id, 1);
+      await addRecommendedItemToCart(recommendation.restaurantId!, item.id, 1);
       setIsAdded(true);
       setTimeout(() => setIsAdded(false), 2000);
     } catch (err) {
@@ -167,21 +169,13 @@ export function RecommendationCard({ recommendation }: { recommendation: { type:
     }
   };
 
-  // Extract key reasons based on recommendation type
-  const getWhyRecommended = () => {
-    const reasons = [];
-    if (isVeg) reasons.push("100% Vegetarian option");
-    if (recommendation.type === "spicy" || item.spiceLevel > 2) reasons.push("Authentic spice profile");
-    if (recommendation.type === "budget" || price < 300) reasons.push("Fits within budget limits");
-    if (recommendation.type === "value") reasons.push("Great value-for-money size");
-    if (recommendation.type === "pairing") reasons.push(`Complements your ${recommendation.pairedWith || "selection"}`);
-    
-    // Fallback standard reasons
-    if (reasons.length < 3) reasons.push("Customer favorite rating");
-    if (reasons.length < 3) reasons.push("Fresh premium ingredients");
-
-    return reasons.slice(0, 3);
-  };
+  if (!item || !name || !rationale) {
+    return (
+      <div className="mt-3 rounded-lg border border-border bg-card/40 p-4 text-xs text-muted-foreground">
+        Recommendation data is unavailable for this response.
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -192,16 +186,22 @@ export function RecommendationCard({ recommendation }: { recommendation: { type:
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className={`h-2.5 w-2.5 rounded-full ${isVeg ? "bg-emerald-500" : "bg-red-500"}`} />
+            {isVeg !== null ? (
+              <span className={`h-2.5 w-2.5 rounded-full ${isVeg ? "bg-emerald-500" : "bg-red-500"}`} />
+            ) : null}
             <h3 className="text-sm font-bold text-foreground">{name}</h3>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{description}</p>
-          <div className="mt-2 text-sm font-extrabold text-primary">₹{price}</div>
+          {description ? (
+            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{description}</p>
+          ) : null}
+          {price !== null ? (
+            <div className="mt-2 text-sm font-extrabold text-primary">{"\u20B9"}{price}</div>
+          ) : null}
         </div>
         <Button
           size="sm"
           onClick={handleAddToCart}
-          disabled={isCartLoading}
+          disabled={isCartLoading || !canAddToCart}
           className="shrink-0 font-bold bg-primary text-primary-foreground hover:bg-primary/95"
         >
           {isAdded ? (
@@ -216,18 +216,6 @@ export function RecommendationCard({ recommendation }: { recommendation: { type:
         </Button>
       </div>
 
-      <div className="mt-4 border-t border-border/60 pt-3">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Why Recommended</div>
-        <ul className="mt-1.5 flex flex-col gap-1 text-xs">
-          {getWhyRecommended().map((reason, idx) => (
-            <li key={idx} className="flex items-center gap-1.5 text-foreground/90">
-              <span className="text-primary font-bold">✓</span>
-              {reason}
-            </li>
-          ))}
-        </ul>
-      </div>
-
       <div className="mt-3.5 rounded bg-muted/40 p-2.5 text-xs italic text-muted-foreground leading-relaxed">
         {rationale}
       </div>
@@ -235,7 +223,6 @@ export function RecommendationCard({ recommendation }: { recommendation: { type:
   );
 }
 
-// ─── 4. CLARIFICATION PILLS ───
 export function ClarificationCard() {
   const { sendMessage, isLoading } = useSessionContext();
 
@@ -260,7 +247,6 @@ export function ClarificationCard() {
   );
 }
 
-// ─── 5. ERROR ALERT ───
 export function ErrorCard({ errorText }: { errorText: string }) {
   const { initSession } = useSessionContext();
   const [retrying, setRetrying] = useState(false);

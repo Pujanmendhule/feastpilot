@@ -74,17 +74,23 @@ export function AssistantMessageBubble({ message, isLatest }: AssistantMessageBu
   const { session } = useSessionContext();
 
   const renderSpecialCards = () => {
-    if (!isLatest || !session) return null;
+    if (!session) return null;
+
+    const matchedRecommendation = session.lastRecommendationResults?.find((result) => {
+      if (!result || typeof result !== "object") return false;
+      const messageContent = (result as { messageContent?: unknown }).messageContent;
+      return typeof messageContent === "string" && messageContent === message.content;
+    });
+
+    if (matchedRecommendation) {
+      return <RecommendationCard recommendation={matchedRecommendation} />;
+    }
+
+    if (!isLatest) return null;
 
     // 1. Awaiting recommendation refinement clarification
     if (session.awaitingRecommendationRefinement) {
       return <ClarificationCard />;
-    }
-
-    // 2. Active recommendation results
-    if (session.lastRecommendationResults && session.lastRecommendationResults.length > 0) {
-      const rec = session.lastRecommendationResults[0];
-      return <RecommendationCard recommendation={rec} />;
     }
 
     // 3. Awaiting restaurant selection

@@ -22,6 +22,20 @@ export class AgentService {
     // 3. Execute nodes via LangGraph (plannerNode → toolNode → responseNode)
     const finalState = await graph.invoke(initialState);
 
+    if (finalState.recommendationResult) {
+      await prisma.session.update({
+        where: { id: sessionId },
+        data: {
+          lastRecommendationResults: [
+            {
+              ...finalState.recommendationResult,
+              messageContent: finalState.agentResponse,
+            },
+          ] as any,
+        },
+      });
+    }
+
     // 4. Save assistant response to database
     await prisma.message.create({
       data: {
