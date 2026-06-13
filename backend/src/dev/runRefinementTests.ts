@@ -23,6 +23,7 @@ process.env.MODEL_PROVIDER = "mock";
 
 import { agentService } from "../services/AgentService";
 import { sessionService } from "../services/SessionService";
+import { prisma } from "../db/prisma";
 
 // ── Test harness ───────────────────────────────────────────────────────────────
 
@@ -415,6 +416,66 @@ async function testMultiRevisionChain(): Promise<void> {
   );
 }
 
+// ── Test 13: Recommendation Reference Resolution ──────────────────────────────
+
+async function testRecommendationReferences(): Promise<void> {
+  const sessionId = await setupBehrouzSession();
+
+  // Get initial recommendation
+  await send(sessionId, "Suggest something spicy");
+  
+  // 1. "first option" reference
+  const r1 = await send(sessionId, "add first option");
+  record(
+    "Reference 13a — 'add first option' adds recommended item",
+    r1.toLowerCase().includes("added") && (r1.toLowerCase().includes("chicken") || r1.toLowerCase().includes("dum") || r1.toLowerCase().includes("biryani")),
+    `response="${r1}"`
+  );
+
+  // 2. "recommended item" reference
+  const r2 = await send(sessionId, "add the recommended item");
+  record(
+    "Reference 13b — 'add the recommended item' adds recommended item",
+    r2.toLowerCase().includes("added") && (r2.toLowerCase().includes("chicken") || r2.toLowerCase().includes("dum") || r2.toLowerCase().includes("biryani")),
+    `response="${r2}"`
+  );
+
+  // 3. "that recommendation" reference
+  const r3 = await send(sessionId, "add that recommendation");
+  record(
+    "Reference 13c — 'add that recommendation' adds recommended item",
+    r3.toLowerCase().includes("added") && (r3.toLowerCase().includes("chicken") || r3.toLowerCase().includes("dum") || r3.toLowerCase().includes("biryani")),
+    `response="${r3}"`
+  );
+
+  // 4. "add the suggestion" reference
+  const r4 = await send(sessionId, "add the suggestion");
+  record(
+    "Reference 13d — 'add the suggestion' adds recommended item",
+    r4.toLowerCase().includes("added") && (r4.toLowerCase().includes("chicken") || r4.toLowerCase().includes("dum") || r4.toLowerCase().includes("biryani")),
+    `response="${r4}"`
+  );
+
+  // 5. "second option" reference
+  const secondItem = { id: "bb_1", name: "Paneer Biryani", price: 329, category: "Biryani" };
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: {
+      lastRecommendationResults: [
+        { item: { id: "bb_3", name: "Chicken Dum Biryani", price: 389, category: "Biryani" } },
+        { item: secondItem }
+      ] as any
+    }
+  });
+
+  const r5 = await send(sessionId, "add second option");
+  record(
+    "Reference 13e — 'add second option' adds second recommended item",
+    r5.toLowerCase().includes("added") && (r5.toLowerCase().includes("paneer") || r5.toLowerCase().includes("biryani")),
+    `response="${r5}"`
+  );
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -432,6 +493,7 @@ async function main(): Promise<void> {
   await testClarificationAny();
   await testGoalPersistence();
   await testMultiRevisionChain();
+  await testRecommendationReferences();
 
   const passed = outcomes.filter((o) => o.passed).length;
   const failed = outcomes.filter((o) => !o.passed).length;

@@ -116,23 +116,34 @@ async function fallbackKeywordPlanner(state: AgentState): Promise<AgentState> {
 
   const cartIntent = parseCartIntent(state.userMessage);
   if (cartIntent) {
-    const restaurantId = await resolveRestaurantId(state.sessionId);
+    let targetRestaurantId = await resolveRestaurantId(state.sessionId);
 
     // ── Reference resolution for fallback planner ──
     // If the cart parser returned an empty itemQuery, try to fill it
     // from session memory (e.g. "remove it", "add one more").
     const session = await sessionService.getSession(state.sessionId);
     let resolvedItemQuery = cartIntent.type !== "view" ? (cartIntent as { itemQuery: string }).itemQuery : null;
-    if (session && resolvedItemQuery === "") {
-      const ref = resolveReference(state.userMessage, session);
-      resolvedItemQuery = ref?.itemName ?? null;
+    if (session) {
+      if (!resolvedItemQuery || resolvedItemQuery === "") {
+        const ref = resolveReference(state.userMessage, session);
+        if (ref) {
+          resolvedItemQuery = ref.itemName;
+          if (ref.restaurantId) targetRestaurantId = ref.restaurantId;
+        }
+      } else {
+        const ref = resolveReference(resolvedItemQuery, session);
+        if (ref) {
+          resolvedItemQuery = ref.itemName;
+          if (ref.restaurantId) targetRestaurantId = ref.restaurantId;
+        }
+      }
     }
 
     if (cartIntent.type === "view") {
       return {
         ...state,
         plannedTool: "getCart",
-        restaurantId,
+        restaurantId: targetRestaurantId,
         cartAction: "view",
         toolCalls: [...state.toolCalls, "planner"],
       };
@@ -142,7 +153,7 @@ async function fallbackKeywordPlanner(state: AgentState): Promise<AgentState> {
       return {
         ...state,
         plannedTool: "removeFromCart",
-        restaurantId,
+        restaurantId: targetRestaurantId,
         cartAction: "remove",
         menuItemQuery: resolvedItemQuery,
         toolCalls: [...state.toolCalls, "planner"],
@@ -153,7 +164,7 @@ async function fallbackKeywordPlanner(state: AgentState): Promise<AgentState> {
       return {
         ...state,
         plannedTool: "setCartQuantity",
-        restaurantId,
+        restaurantId: targetRestaurantId,
         cartAction: "setQuantity",
         menuItemQuery: resolvedItemQuery,
         quantity: cartIntent.quantity,
@@ -164,7 +175,7 @@ async function fallbackKeywordPlanner(state: AgentState): Promise<AgentState> {
     return {
       ...state,
       plannedTool: "addToCart",
-      restaurantId,
+      restaurantId: targetRestaurantId,
       cartAction: cartIntent.type,
       menuItemQuery: resolvedItemQuery,
       quantity: cartIntent.quantity,
@@ -511,12 +522,24 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
           ? cartIntent
           : null;
       let menuItemQuery = strippedItem ?? addCartFallback?.itemQuery ?? null;
+      let targetRestaurantId = restaurantId;
 
-      // Reference resolution: fill empty menuItemQuery from memory.
+      // Reference resolution: fill empty menuItemQuery from memory or resolve recommendation references.
       const addSession = await sessionService.getSession(state.sessionId);
-      if ((!menuItemQuery || menuItemQuery === "") && addSession) {
-        const ref = resolveReference(state.userMessage, addSession);
-        if (ref) menuItemQuery = ref.itemName;
+      if (addSession) {
+        if (!menuItemQuery || menuItemQuery === "") {
+          const ref = resolveReference(state.userMessage, addSession);
+          if (ref) {
+            menuItemQuery = ref.itemName;
+            if (ref.restaurantId) targetRestaurantId = ref.restaurantId;
+          }
+        } else {
+          const ref = resolveReference(menuItemQuery, addSession);
+          if (ref) {
+            menuItemQuery = ref.itemName;
+            if (ref.restaurantId) targetRestaurantId = ref.restaurantId;
+          }
+        }
       }
 
       const quantity =
@@ -529,7 +552,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
         ...state,
         ...modelState,
         plannedTool: "updateCart",
-        restaurantId,
+        restaurantId: targetRestaurantId,
         cartAction: "add",
         menuItemQuery,
         quantity,
@@ -546,12 +569,24 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
           ? cartIntent
           : null;
       let menuItemQuery = strippedItem ?? addAnotherFallback?.itemQuery ?? null;
+      let targetRestaurantId = restaurantId;
 
-      // Reference resolution: fill empty menuItemQuery from memory.
+      // Reference resolution: fill empty menuItemQuery from memory or resolve recommendation references.
       const anotherSession = await sessionService.getSession(state.sessionId);
-      if ((!menuItemQuery || menuItemQuery === "") && anotherSession) {
-        const ref = resolveReference(state.userMessage, anotherSession);
-        if (ref) menuItemQuery = ref.itemName;
+      if (anotherSession) {
+        if (!menuItemQuery || menuItemQuery === "") {
+          const ref = resolveReference(state.userMessage, anotherSession);
+          if (ref) {
+            menuItemQuery = ref.itemName;
+            if (ref.restaurantId) targetRestaurantId = ref.restaurantId;
+          }
+        } else {
+          const ref = resolveReference(menuItemQuery, anotherSession);
+          if (ref) {
+            menuItemQuery = ref.itemName;
+            if (ref.restaurantId) targetRestaurantId = ref.restaurantId;
+          }
+        }
       }
 
       const quantity =
@@ -564,7 +599,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
         ...state,
         ...modelState,
         plannedTool: "updateCart",
-        restaurantId,
+        restaurantId: targetRestaurantId,
         cartAction: "addAnother",
         menuItemQuery,
         quantity,
@@ -578,19 +613,31 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
       const cartIntent = !strippedItem ? parseCartIntent(state.userMessage) : null;
       const removeFallback = cartIntent?.type !== "view" ? cartIntent : null;
       let menuItemQuery = strippedItem ?? removeFallback?.itemQuery ?? null;
+      let targetRestaurantId = restaurantId;
 
-      // Reference resolution: fill empty menuItemQuery from memory.
+      // Reference resolution: fill empty menuItemQuery from memory or resolve recommendation references.
       const removeSession = await sessionService.getSession(state.sessionId);
-      if ((!menuItemQuery || menuItemQuery === "") && removeSession) {
-        const ref = resolveReference(state.userMessage, removeSession);
-        if (ref) menuItemQuery = ref.itemName;
+      if (removeSession) {
+        if (!menuItemQuery || menuItemQuery === "") {
+          const ref = resolveReference(state.userMessage, removeSession);
+          if (ref) {
+            menuItemQuery = ref.itemName;
+            if (ref.restaurantId) targetRestaurantId = ref.restaurantId;
+          }
+        } else {
+          const ref = resolveReference(menuItemQuery, removeSession);
+          if (ref) {
+            menuItemQuery = ref.itemName;
+            if (ref.restaurantId) targetRestaurantId = ref.restaurantId;
+          }
+        }
       }
 
       return {
         ...state,
         ...modelState,
         plannedTool: "removeFromCart",
-        restaurantId,
+        restaurantId: targetRestaurantId,
         cartAction: "remove",
         menuItemQuery,
         toolCalls: [...state.toolCalls, "planner"],
@@ -617,12 +664,24 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
           ? cartIntent
           : null;
       let menuItemQuery = strippedItem ?? setQtyFallback?.itemQuery ?? null;
+      let targetRestaurantId = restaurantId;
 
-      // Reference resolution: fill empty menuItemQuery from memory.
+      // Reference resolution: fill empty menuItemQuery from memory or resolve recommendation references.
       const setQtySession = await sessionService.getSession(state.sessionId);
-      if ((!menuItemQuery || menuItemQuery === "") && setQtySession) {
-        const ref = resolveReference(state.userMessage, setQtySession);
-        if (ref) menuItemQuery = ref.itemName;
+      if (setQtySession) {
+        if (!menuItemQuery || menuItemQuery === "") {
+          const ref = resolveReference(state.userMessage, setQtySession);
+          if (ref) {
+            menuItemQuery = ref.itemName;
+            if (ref.restaurantId) targetRestaurantId = ref.restaurantId;
+          }
+        } else {
+          const ref = resolveReference(menuItemQuery, setQtySession);
+          if (ref) {
+            menuItemQuery = ref.itemName;
+            if (ref.restaurantId) targetRestaurantId = ref.restaurantId;
+          }
+        }
       }
 
       // Quantity: prefer Azure entity, then cart parser, then absolute quantity
@@ -639,7 +698,7 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
         ...state,
         ...modelState,
         plannedTool: "setCartItemQuantity",
-        restaurantId,
+        restaurantId: targetRestaurantId,
         cartAction: "setQuantity",
         menuItemQuery,
         quantity,

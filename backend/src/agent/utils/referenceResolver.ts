@@ -6,6 +6,7 @@ import type { Session } from "../../types/session";
 export interface ResolvedReference {
   itemId: string;
   itemName: string;
+  restaurantId?: string;
 }
 
 /**
@@ -46,6 +47,60 @@ export function resolveReference(
   userMessage: string,
   session: Session
 ): ResolvedReference | null {
+  const lower = userMessage.toLowerCase().trim();
+
+  // 1. Recommendation Reference Resolution
+  if (session.lastRecommendationResults && session.lastRecommendationResults.length > 0) {
+    // Check for third option
+    if (
+      /\b(third|3rd)\b/.test(lower) &&
+      (lower.includes("option") || lower.includes("recommendation") || lower.includes("item") || lower.includes("choice") || lower.includes("one"))
+    ) {
+      const rec = session.lastRecommendationResults[2];
+      if (rec) {
+        const item = (rec as any).item;
+        const restId = (rec as any).restaurantId;
+        return { itemId: item.id, itemName: item.name, restaurantId: restId };
+      }
+    }
+
+    // Check for second option
+    if (
+      /\b(second|2nd)\b/.test(lower) &&
+      (lower.includes("option") || lower.includes("recommendation") || lower.includes("item") || lower.includes("choice") || lower.includes("one"))
+    ) {
+      const rec = session.lastRecommendationResults[1];
+      if (rec) {
+        const item = (rec as any).item;
+        const restId = (rec as any).restaurantId;
+        return { itemId: item.id, itemName: item.name, restaurantId: restId };
+      }
+    }
+
+    // Check for first option / singular recommendation reference
+    const matchesFirst =
+      /\b(first|1st)\b/.test(lower) ||
+      lower.includes("recommended item") ||
+      lower.includes("recommended option") ||
+      lower.includes("recommendation") ||
+      lower.includes("suggestion") ||
+      lower.includes("first option") ||
+      (
+        (lower.includes("option") || lower.includes("item") || lower.includes("one") || lower.includes("suggestion")) &&
+        !/\b(second|2nd|third|3rd)\b/.test(lower)
+      );
+
+    if (matchesFirst) {
+      const rec = session.lastRecommendationResults[0];
+      if (rec) {
+        const item = (rec as any).item;
+        const restId = (rec as any).restaurantId;
+        return { itemId: item.id, itemName: item.name, restaurantId: restId };
+      }
+    }
+  }
+
+  // 2. Original conversational reference resolution
   if (!containsReferenceKeyword(userMessage)) {
     return null;
   }
