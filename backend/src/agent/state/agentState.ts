@@ -60,6 +60,16 @@ export interface AgentState {
    * Set by toolNode when plannedTool === "recommend".
    */
   recommendationResult: RecommendationResult | null;
+  /**
+   * True when the planner is waiting for the user to answer a clarification
+   * question (e.g. veg / non-veg / any). Set and cleared by plannerNode.
+   */
+  awaitingRecommendationClarification: boolean;
+  /**
+   * The clarification question text rendered by responseNode.
+   * Populated only when awaitingRecommendationClarification === true.
+   */
+  recommendationClarificationQuestion: string | null;
 }
 
 /**
@@ -88,5 +98,7 @@ export function createInitialState(
     intentConfidence: undefined,
     recommendationType: null,
     recommendationResult: null,
+    awaitingRecommendationClarification: false,
+    recommendationClarificationQuestion: null,
   };
 }

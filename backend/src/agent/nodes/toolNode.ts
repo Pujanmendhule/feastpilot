@@ -1,3 +1,4 @@
+import { prisma } from "../../db/prisma";
 import type { AgentState } from "../state/agentState";
 import type { CartOperationResult } from "../types/toolResults";
 import {
@@ -20,7 +21,9 @@ import {
   recommendPairing,
   recommendBudget,
   recommendValue,
+  recommendWithConstraints,
 } from "../utils/recommendationEngine";
+import { getRecommendationGoal, setRecommendationGoal } from "../utils/recommendationGoalStore";
 
 function buildCartError(
   action: CartOperationResult["action"],
@@ -79,41 +82,80 @@ async function resolveMenuItemForCart(
  */
 export async function toolNode(state: AgentState): Promise<AgentState> {
 
-  // ── recommend ──────────────────────────────────────────────────
+  // ── recommend ─────────────────────────────────────────────────────
   if (state.plannedTool === "recommend") {
     // Resolve restaurant context from session
     const session = await sessionService.getSession(state.sessionId);
     const contextRestaurantId = session?.selectedRestaurantId ?? state.restaurantId;
 
+    // Load active goal (may have constraints from prior refinement turns)
+    const activeGoal = await getRecommendationGoal(state.sessionId);
+    const constraints = activeGoal?.constraints;
+    const pairingReference = activeGoal?.pairingReference ?? state.searchQuery ?? "";
+
     let recommendationResult = null;
     const rType = state.recommendationType;
 
-    if (rType === "spicy") {
+    if (rType && constraints) {
+      // V2 path: use constraint-aware dispatch
+      recommendationResult = recommendWithConstraints(
+        rType as import("../utils/recommendationEngine").RecommendationType,
+        contextRestaurantId,
+        constraints,
+        pairingReference
+      );
+    } else if (rType === "spicy") {
       recommendationResult = recommendSpicy(contextRestaurantId);
     } else if (rType === "vegetarian") {
       recommendationResult = recommendVegetarian(contextRestaurantId);
     } else if (rType === "dessert") {
       recommendationResult = recommendDessert(contextRestaurantId);
     } else if (rType === "pairing") {
-      // searchQuery holds the pairing reference item name
-      recommendationResult = recommendPairing(
-        state.searchQuery ?? "",
-        contextRestaurantId
-      );
+      recommendationResult = recommendPairing(state.searchQuery ?? "", contextRestaurantId);
     } else if (rType === "budget") {
-      // quantity field holds the budget ceiling
-      recommendationResult = recommendBudget(
-        state.quantity,
-        contextRestaurantId
-      );
+      recommendationResult = recommendBudget(state.quantity, contextRestaurantId);
     } else if (rType === "value") {
       recommendationResult = recommendValue(contextRestaurantId);
+    }
+
+    // Record the recommended item ID in the goal so next "different" skips it
+    if (recommendationResult && activeGoal) {
+      const itemId = recommendationResult.item.id;
+      if (!activeGoal.excludedItemIds.includes(itemId)) {
+        const updatedGoal = {
+          ...activeGoal,
+          excludedItemIds: [...activeGoal.excludedItemIds, itemId],
+          constraints: {
+            ...activeGoal.constraints,
+            excludedItemIds: [...(activeGoal.constraints.excludedItemIds ?? []), itemId],
+          },
+        };
+        await setRecommendationGoal(state.sessionId, updatedGoal);
+      }
+    }
+
+    if (recommendationResult) {
+      await prisma.session.update({
+        where: { id: state.sessionId },
+        data: {
+          lastRecommendationResults: [recommendationResult] as any,
+        },
+      });
     }
 
     return {
       ...state,
       recommendationResult,
       toolCalls: [...state.toolCalls, "recommend"],
+    };
+  }
+
+  // ── clarify ─────────────────────────────────────────────────────
+  // No DB operation needed — the question text is already in state.
+  if (state.plannedTool === "clarify") {
+    return {
+      ...state,
+      toolCalls: [...state.toolCalls, "clarify"],
     };
   }
 

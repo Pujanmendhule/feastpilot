@@ -88,6 +88,14 @@ const AgentStateAnnotation = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => null,
   }),
+  awaitingRecommendationClarification: Annotation<boolean>({
+    reducer: (_prev, next) => next,
+    default: () => false,
+  }),
+  recommendationClarificationQuestion: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
 });
 
 // ── Graph definition ─────────────────────────────────────────────────────────

@@ -145,8 +145,10 @@ function renderCartOperationResult(result: CartOperationResult): string {
 export async function responseNode(state: AgentState): Promise<AgentState> {
   let agentResponse: string;
 
-  // ── Recommendation response (highest priority when result is set) ──────────
-  if (state.recommendationResult !== null && state.recommendationResult !== undefined) {
+  // ── Clarification question (highest priority when set) ────────────────────
+  if (state.awaitingRecommendationClarification && state.recommendationClarificationQuestion) {
+    agentResponse = state.recommendationClarificationQuestion;
+  } else if (state.recommendationResult !== null && state.recommendationResult !== undefined) {
     agentResponse = state.recommendationResult.rationale;
   } else if (state.plannedTool === "recommend") {
     // Engine ran but found nothing

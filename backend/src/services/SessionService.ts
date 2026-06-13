@@ -31,6 +31,11 @@ function toSession(row: PrismaSessionWithMessages): Session {
     })),
     preferences: (row.preferences as unknown) as SessionPreferences,
     assumptions: (row.assumptions as unknown) as SessionAssumptions,
+    activeRecommendationGoal: row.activeRecommendationGoal,
+    recommendationConstraints: (row.recommendationConstraints as unknown) as Record<string, unknown> | null,
+    excludedRecommendations: (row.excludedRecommendations as unknown) as string[] | null,
+    lastRecommendationResults: (row.lastRecommendationResults as unknown) as Record<string, unknown>[] | null,
+    awaitingRecommendationRefinement: row.awaitingRecommendationRefinement,
     createdAt: row.createdAt.toISOString(),
   };
 }

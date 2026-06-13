@@ -1,7 +1,10 @@
 /**
  * recommendationEngine.ts
  *
- * Pure menu-reasoning layer for FeastPilot Advanced Reasoning V1.
+ * Pure menu-reasoning layer for FeastPilot Advanced Reasoning V1 + V2.
+ *
+ * V1: Six recommendation types from menu metadata.
+ * V2: Constraint-aware filtering for multi-turn refinement.
  *
  * Derives all recommendations solely from existing menu metadata:
  *   - category     → dessert / spice category heuristics
@@ -16,6 +19,7 @@
 import type { MockMenuItem } from "../../data/mock/types";
 import { MockMenuService } from "../../services/MockMenuService";
 import { MockRestaurantService } from "../../services/MockRestaurantService";
+import type { RecommendationConstraints } from "../types/recommendationGoal";
 
 const mockMenuService = new MockMenuService();
 const mockRestaurantService = new MockRestaurantService();
@@ -158,13 +162,50 @@ function getMenuItems(restaurantId: string | null): Array<{ item: MockMenuItem; 
   return results;
 }
 
+// ── Constraint filtering ───────────────────────────────────────────────────────
+//
+// Applies accumulated refinement constraints to filter candidates.
+
+function applyConstraints(
+  candidates: Array<{ item: MockMenuItem; restaurantId: string }>,
+  constraints: RecommendationConstraints
+): Array<{ item: MockMenuItem; restaurantId: string }> {
+  return candidates.filter(({ item }) => {
+    // Excluded item IDs (already shown)
+    if (constraints.excludedItemIds.includes(item.id)) return false;
+
+    // Vegetarian constraint
+    if (constraints.mustBeVegetarian && !item.isVegetarian) return false;
+    if (constraints.mustBeNonVegetarian && item.isVegetarian) return false;
+
+    // Price constraints
+    if (constraints.maxPrice !== undefined && item.price > constraints.maxPrice) return false;
+    if (constraints.minPrice !== undefined && item.price < constraints.minPrice) return false;
+
+    // Excluded categories
+    const catLower = item.category.toLowerCase();
+    if (constraints.excludedCategories.some((ec) => catLower.includes(ec.toLowerCase()))) return false;
+
+    // Excluded name keywords
+    const nameLower = item.name.toLowerCase();
+    if (constraints.excludedNameKeywords.some((ek) => nameLower.includes(ek.toLowerCase()))) return false;
+
+    return true;
+  });
+}
+
 // ── Public recommendation functions ──────────────────────────────────────────
 
 /**
  * Recommend the spiciest available item in the current restaurant context.
+ * Supports constraints for multi-turn refinement.
  */
-export function recommendSpicy(restaurantId: string | null): RecommendationResult | null {
-  const candidates = getMenuItems(restaurantId);
+export function recommendSpicy(
+  restaurantId: string | null,
+  constraints?: RecommendationConstraints
+): RecommendationResult | null {
+  let candidates = getMenuItems(restaurantId);
+  if (constraints) candidates = applyConstraints(candidates, constraints);
   if (candidates.length === 0) return null;
 
   const scored = candidates
@@ -185,8 +226,16 @@ export function recommendSpicy(restaurantId: string | null): RecommendationResul
  * Recommend the best vegetarian item.
  * Prefers main-course vegetarian over sides.
  */
-export function recommendVegetarian(restaurantId: string | null): RecommendationResult | null {
-  const candidates = getMenuItems(restaurantId).filter((c) => c.item.isVegetarian);
+export function recommendVegetarian(
+  restaurantId: string | null,
+  constraints?: RecommendationConstraints
+): RecommendationResult | null {
+  const baseConstraints: RecommendationConstraints = constraints
+    ? { ...constraints, mustBeVegetarian: true }
+    : { excludedItemIds: [], excludedCategories: [], excludedNameKeywords: [], mustBeVegetarian: true };
+
+  let candidates = getMenuItems(restaurantId);
+  candidates = applyConstraints(candidates, baseConstraints);
   if (candidates.length === 0) return null;
 
   // Prefer mains, then anything
@@ -211,11 +260,13 @@ export function recommendVegetarian(restaurantId: string | null): Recommendation
 
 /**
  * Recommend the best dessert.
- * Prefers highest rating (approximated by highest value score since no rating
- * exists on menu items) and lowest price for approachability.
  */
-export function recommendDessert(restaurantId: string | null): RecommendationResult | null {
-  const candidates = getMenuItems(restaurantId).filter((c) => isDessert(c.item));
+export function recommendDessert(
+  restaurantId: string | null,
+  constraints?: RecommendationConstraints
+): RecommendationResult | null {
+  let candidates = getMenuItems(restaurantId).filter((c) => isDessert(c.item));
+  if (constraints) candidates = applyConstraints(candidates, constraints);
   if (candidates.length === 0) return null;
 
   // Sort: lowest price first (most accessible dessert recommendation)
@@ -231,16 +282,13 @@ export function recommendDessert(restaurantId: string | null): RecommendationRes
 
 /**
  * Recommend a pairing for a named item.
- * Logic:
- *   - main → find a dessert or side from the same restaurant
- *   - dessert → find a main from the same restaurant
- *   - side → find a main from the same restaurant
  */
 export function recommendPairing(
   referenceItemName: string,
-  restaurantId: string | null
+  restaurantId: string | null,
+  constraints?: RecommendationConstraints
 ): RecommendationResult | null {
-  const allCandidates = getMenuItems(restaurantId);
+  let allCandidates = getMenuItems(restaurantId);
   if (allCandidates.length === 0) return null;
 
   // Find the reference item by name similarity
@@ -262,7 +310,6 @@ export function recommendPairing(
 
   let pairingCandidates: typeof sameRestaurant;
   if (refGroup === "main") {
-    // Mains pair with desserts first, then sides
     const desserts = sameRestaurant.filter((c) => categoryGroup(c.item) === "dessert" && c.item.id !== exclude);
     const sides = sameRestaurant.filter((c) => categoryGroup(c.item) === "side" && c.item.id !== exclude);
     pairingCandidates = desserts.length > 0 ? desserts : sides;
@@ -276,6 +323,9 @@ export function recommendPairing(
   if (pairingCandidates.length === 0) {
     pairingCandidates = sameRestaurant.filter((c) => c.item.id !== exclude);
   }
+
+  // Apply constraints to pairing candidates
+  if (constraints) pairingCandidates = applyConstraints(pairingCandidates, constraints);
 
   if (pairingCandidates.length === 0) return null;
 
@@ -291,13 +341,19 @@ export function recommendPairing(
 
 /**
  * Recommend an item under a given price budget.
- * Prefers mains, then any available item, picking the best value within budget.
  */
 export function recommendBudget(
   maxPrice: number,
-  restaurantId: string | null
+  restaurantId: string | null,
+  constraints?: RecommendationConstraints
 ): RecommendationResult | null {
-  const candidates = getMenuItems(restaurantId).filter((c) => c.item.price <= maxPrice);
+  // Merge maxPrice into constraints
+  const merged: RecommendationConstraints = constraints
+    ? { ...constraints, maxPrice: Math.min(maxPrice, constraints.maxPrice ?? maxPrice) }
+    : { excludedItemIds: [], excludedCategories: [], excludedNameKeywords: [], maxPrice };
+
+  let candidates = getMenuItems(restaurantId);
+  candidates = applyConstraints(candidates, merged);
   if (candidates.length === 0) return null;
 
   // Prefer main-course items for meaningful recommendations
@@ -318,8 +374,12 @@ export function recommendBudget(
 /**
  * Recommend the best value item (highest servingEstimate / price ratio).
  */
-export function recommendValue(restaurantId: string | null): RecommendationResult | null {
-  const candidates = getMenuItems(restaurantId);
+export function recommendValue(
+  restaurantId: string | null,
+  constraints?: RecommendationConstraints
+): RecommendationResult | null {
+  let candidates = getMenuItems(restaurantId);
+  if (constraints) candidates = applyConstraints(candidates, constraints);
   if (candidates.length === 0) return null;
 
   // Exclude beverages and very cheap sides from "value" recommendations
@@ -328,11 +388,31 @@ export function recommendValue(restaurantId: string | null): RecommendationResul
 
   const best = pool.sort((a, b) => valueScore(b.item) - valueScore(a.item))[0];
 
-  const ratio = (best.item.servingEstimate / best.item.price * 100).toFixed(1);
   return {
     type: "value",
     item: best.item,
     restaurantId: best.restaurantId,
     rationale: `${best.item.name} at ₹${best.item.price} serves ${best.item.servingEstimate} — one of the best value-per-portion options.`,
   };
+}
+
+/**
+ * Generic constrained recommendation dispatch.
+ * Used by toolNode for refinement turns where the goal type is known.
+ */
+export function recommendWithConstraints(
+  type: RecommendationType,
+  restaurantId: string | null,
+  constraints: RecommendationConstraints,
+  pairingReference?: string
+): RecommendationResult | null {
+  switch (type) {
+    case "spicy":      return recommendSpicy(restaurantId, constraints);
+    case "vegetarian": return recommendVegetarian(restaurantId, constraints);
+    case "dessert":    return recommendDessert(restaurantId, constraints);
+    case "value":      return recommendValue(restaurantId, constraints);
+    case "budget":     return recommendBudget(constraints.maxPrice ?? 500, restaurantId, constraints);
+    case "pairing":    return recommendPairing(pairingReference ?? "", restaurantId, constraints);
+    default:           return null;
+  }
 }

@@ -8,6 +8,10 @@ import { sessionService } from "../../services/SessionService";
 import { modelService } from "../../services/models/ModelService";
 import type { EntityExtractionResult, IntentResult } from "../../services/models/types";
 import { detectRecommendation } from "../utils/recommendationDetector";
+import { detectRefinement, isVagueRecommendation, clarifyAnswerToType } from "../utils/refinementDetector";
+import { getRecommendationGoal, setRecommendationGoal, clearRecommendationGoal } from "../utils/recommendationGoalStore";
+import { emptyConstraints } from "../types/recommendationGoal";
+import type { ActiveRecommendationGoal, RecommendationConstraints } from "../types/recommendationGoal";
 
 /** Minimum confidence for the Azure result to be used as primary source. */
 const CONFIDENCE_THRESHOLD = 0.6;
@@ -213,12 +217,186 @@ export async function plannerNode(state: AgentState): Promise<AgentState> {
     };
   }
 
-  // ── Recommendation detection (before ModelService) ─────────────────────────
+  // ── STEP 1: Active recommendation goal — check for refinement or clarification answer ──
+  //
+  // If the session has an active recommendation goal, check whether the current
+  // message is a refinement ("not biryani", "cheaper") or clarification answer
+  // ("vegetarian") BEFORE doing normal recommendation or intent detection.
+  const activeGoal = await getRecommendationGoal(state.sessionId);
+
+  if (activeGoal) {
+    const refinement = detectRefinement(state.userMessage);
+
+    if (refinement) {
+      console.log(`[Planner] Refinement detected: type=${refinement.type} (goal=${activeGoal.type})`);
+
+      // Clone constraints so we can mutate
+      const c: RecommendationConstraints = {
+        ...activeGoal.constraints,
+        excludedCategories: [...activeGoal.constraints.excludedCategories],
+        excludedNameKeywords: [...activeGoal.constraints.excludedNameKeywords],
+        excludedItemIds: [...activeGoal.constraints.excludedItemIds],
+      };
+
+      let goalType = activeGoal.type;
+
+      switch (refinement.type) {
+        case "cheaper":
+          // Reduce maxPrice by ~20% or set a ₹300 ceiling if no current max
+          c.maxPrice = c.maxPrice !== undefined
+            ? Math.floor(c.maxPrice * 0.8)
+            : 300;
+          break;
+
+        case "more_expensive":
+          // Raise minPrice by ~20% of current max or set ₹400 floor
+          c.minPrice = c.maxPrice !== undefined
+            ? Math.floor(c.maxPrice * 0.8)
+            : 400;
+          c.maxPrice = undefined;
+          break;
+
+        case "budget_update":
+          c.maxPrice = refinement.budgetAmount;
+          goalType = "budget";
+          break;
+
+        case "vegetarian":
+          c.mustBeVegetarian = true;
+          c.mustBeNonVegetarian = false;
+          break;
+
+        case "non_vegetarian":
+          c.mustBeNonVegetarian = true;
+          c.mustBeVegetarian = false;
+          break;
+
+        case "spicier":
+          c.preferSpicy = true;
+          goalType = "spicy";
+          break;
+
+        case "less_spicy":
+          c.preferSpicy = false;
+          // Exclude known spicy categories
+          if (!c.excludedCategories.includes("starter")) c.excludedCategories.push("starter");
+          break;
+
+        case "healthier":
+          c.preferHealthy = true;
+          // Exclude heavy categories
+          if (!c.excludedCategories.includes("burger")) c.excludedCategories.push("burger");
+          if (!c.excludedCategories.includes("chicken")) c.excludedCategories.push("chicken");
+          break;
+
+        case "exclude_item": {
+          // Add the keyword to both name and category exclusions
+          const kw = refinement.excludeKeyword ?? "";
+          if (kw && !c.excludedNameKeywords.includes(kw)) {
+            c.excludedNameKeywords.push(kw);
+          }
+          if (kw && !c.excludedCategories.includes(kw)) {
+            c.excludedCategories.push(kw);
+          }
+          break;
+        }
+
+        case "exclude_category": {
+          const kw = refinement.excludeKeyword ?? "";
+          if (kw && !c.excludedCategories.includes(kw)) {
+            c.excludedCategories.push(kw);
+          }
+          break;
+        }
+
+        case "different":
+          // Just keep excluded IDs to avoid repeating the same item
+          // No other constraint change needed
+          break;
+
+        case "clarify_vegetarian":
+          goalType = clarifyAnswerToType(refinement.type, activeGoal.type);
+          c.mustBeVegetarian = true;
+          c.mustBeNonVegetarian = false;
+          break;
+
+        case "clarify_non_vegetarian":
+          goalType = clarifyAnswerToType(refinement.type, activeGoal.type);
+          c.mustBeVegetarian = false;
+          c.mustBeNonVegetarian = true;
+          break;
+
+        case "clarify_any":
+          // No constraint change — just run the original goal
+          break;
+      }
+
+      // Update and persist the refined goal
+      const updatedGoal: ActiveRecommendationGoal = {
+        ...activeGoal,
+        type: goalType,
+        constraints: c,
+        awaitingClarification: false,
+      };
+      await setRecommendationGoal(state.sessionId, updatedGoal);
+
+      return {
+        ...state,
+        plannedTool: "recommend",
+        recommendationType: goalType,
+        // searchQuery carries pairing reference, quantity carries budget
+        searchQuery: activeGoal.pairingReference ?? state.searchQuery,
+        quantity: c.maxPrice ?? state.quantity,
+        toolCalls: [...state.toolCalls, "planner"],
+      };
+    }
+
+    // Active goal but NOT a refinement — could be a new ordering intent.
+    // Fall through to normal processing (model service will handle it).
+  }
+
+  // ── STEP 2: Vague recommendation → clarification question ─────────────────
+  if (isVagueRecommendation(state.userMessage)) {
+    console.log(`[Planner] Vague recommendation — asking clarification`);
+    const question =
+      "Do you have a preference?\n\n• Vegetarian\n• Non-vegetarian\n• Any";
+
+    // Persist a goal stub so the clarification answer can be matched
+    const stub: ActiveRecommendationGoal = {
+      type: "spicy", // placeholder; will be overridden by clarification answer
+      constraints: emptyConstraints(),
+      excludedItemIds: [],
+      awaitingClarification: true,
+      clarificationQuestion: question,
+    };
+    await setRecommendationGoal(state.sessionId, stub);
+
+    return {
+      ...state,
+      plannedTool: "clarify",
+      awaitingRecommendationClarification: true,
+      recommendationClarificationQuestion: question,
+      toolCalls: [...state.toolCalls, "planner"],
+    };
+  }
+
+  // ── STEP 3: Fresh recommendation detection ─────────────────────────────────
   // Detects recommendation queries purely from keywords; bypasses intent
   // classification so ordering intents are never disturbed.
   const recommendationQuery = detectRecommendation(state.userMessage);
   if (recommendationQuery) {
     console.log(`[Planner] Recommendation detected: type=${recommendationQuery.type}`);
+
+    // Persist a new goal to session
+    const newGoal: ActiveRecommendationGoal = {
+      type: recommendationQuery.type,
+      pairingReference: recommendationQuery.referenceItem,
+      constraints: emptyConstraints(),
+      excludedItemIds: [],
+      awaitingClarification: false,
+    };
+    await setRecommendationGoal(state.sessionId, newGoal);
+
     return {
       ...state,
       plannedTool: "recommend",

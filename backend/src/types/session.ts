@@ -40,5 +40,10 @@ export interface Session {
   messages: SessionMessage[];
   preferences: SessionPreferences;
   assumptions: SessionAssumptions;
+  activeRecommendationGoal: string | null;
+  recommendationConstraints: Record<string, unknown> | null;
+  excludedRecommendations: string[] | null;
+  lastRecommendationResults: Record<string, unknown>[] | null;
+  awaitingRecommendationRefinement: boolean;
   createdAt: string;
 }

@@ -18,6 +18,11 @@ model Session {
   lastViewedMenuItems         Json      @default("[]")
   preferences                 Json      @default("{}")
   assumptions                 Json      @default("{}")
+  activeRecommendationGoal    String?
+  recommendationConstraints   Json?
+  excludedRecommendations     Json?
+  lastRecommendationResults   Json?
+  awaitingRecommendationRefinement Boolean @default(false)
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime  @updatedAt
   messages                    Message[]

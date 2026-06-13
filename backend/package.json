@@ -11,6 +11,7 @@
     "test:model": "ts-node src/dev/runModelServiceTests.ts",
     "test:persistence": "ts-node src/dev/runPersistenceVerification.ts",
     "test:recommendation": "ts-node src/dev/runRecommendationTests.ts",
+    "test:refinement": "ts-node src/dev/runRefinementTests.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:push": "prisma db push"
