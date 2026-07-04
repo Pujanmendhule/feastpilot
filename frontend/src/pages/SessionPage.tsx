@@ -62,7 +62,7 @@ export function SessionPage() {
       )}
 
       {/* Main layout */}
-      {(session || !isLoading) && (
+      {session && (
         <main className="flex min-h-0 flex-1 flex-col lg:flex-row overflow-hidden">
           <ConversationRegion />
           <CartRegion />

@@ -9,16 +9,23 @@ import { motion } from "framer-motion";
 
 export function RestaurantCardsList({ candidates }: { candidates: { id: string; name: string }[] }) {
   const { sendMessage } = useSessionContext();
-  const [allRestaurants, setAllRestaurants] = useState<ApiRestaurant[]>([]);
+  const [detailsMap, setDetailsMap] = useState<Record<string, ApiRestaurant>>({});
 
   useEffect(() => {
-    RestaurantService.getRestaurants().then(setAllRestaurants).catch(console.error);
-  }, []);
+    if (candidates.length === 0) return;
+    RestaurantService.getRestaurants()
+      .then((all) => {
+        const map: Record<string, ApiRestaurant> = {};
+        all.forEach((r) => { map[r.id] = r; });
+        setDetailsMap(map);
+      })
+      .catch(console.error);
+  }, [candidates]);
 
   return (
     <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
       {candidates.map((candidate, idx) => {
-        const details = allRestaurants.find((r) => r.id === candidate.id);
+        const details = detailsMap[candidate.id];
         const rating = details?.rating ?? 4.0;
         const cuisines = details?.cuisines?.join(", ") ?? "Cuisine details";
         const delivery = details?.deliveryEstimateMinutes ?? 30;

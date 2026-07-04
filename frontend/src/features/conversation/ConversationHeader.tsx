@@ -14,7 +14,10 @@ export function ConversationHeader() {
   };
 
   const messageCount = session?.messages.filter(m => m.role !== "system").length ?? 0;
-  const selectedRestaurant = session?.selectedRestaurantId;
+  const selectedRestaurantId = session?.selectedRestaurantId;
+  const selectedRestaurantName = session?.lastSearchResults?.find(
+    (r) => r.id === selectedRestaurantId
+  )?.name ?? selectedRestaurantId;
 
   return (
     <header className="flex items-center justify-between border-b border-border/60 bg-card/30 backdrop-blur-sm px-4 py-3 md:px-6 gap-3 shrink-0">
@@ -26,9 +29,9 @@ export function ConversationHeader() {
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-sm font-bold text-foreground">AI Chat</h2>
             {getConnectionBadge()}
-            {selectedRestaurant && (
+            {selectedRestaurantId && (
               <Badge variant="secondary" className="text-[10px] max-w-[120px] truncate">
-                📍 {selectedRestaurant}
+                📍 {selectedRestaurantName}
               </Badge>
             )}
           </div>

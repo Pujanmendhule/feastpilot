@@ -1,6 +1,7 @@
 import { useSessionContext } from "../session/SessionContext";
 import { CartHeader } from "./CartHeader";
 import { CartTotals } from "./CartTotals";
+import { CartAssumptions } from "./CartAssumptions";
 import { RestaurantCartGroupList } from "./RestaurantCartGroupList";
 import { ShoppingCart, MessageCircle, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -50,6 +51,7 @@ export function CartRegion() {
             >
               <RestaurantCartGroupList cart={cart} />
               <CartTotals cart={cart} />
+              <CartAssumptions />
 
               {/* Checkout placeholder */}
               <div className="mt-4">

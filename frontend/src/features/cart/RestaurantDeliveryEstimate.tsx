@@ -1,14 +1,14 @@
 import { Bike } from "lucide-react";
-import { formatInr } from "@/features/session/sessionState";
 
 type RestaurantDeliveryEstimateProps = {
   deliveryFee: number;
-  deliveryWindow: string;
+  /** Delivery time in minutes (from ApiRestaurant.deliveryEstimateMinutes). */
+  deliveryEstimateMinutes: number;
 };
 
 export function RestaurantDeliveryEstimate({
   deliveryFee,
-  deliveryWindow,
+  deliveryEstimateMinutes,
 }: RestaurantDeliveryEstimateProps) {
   return (
     <div className="flex items-start gap-2">
@@ -16,7 +16,7 @@ export function RestaurantDeliveryEstimate({
       <div>
         <p className="text-xs text-muted-foreground">Delivery estimate</p>
         <p className="mt-1 text-sm font-semibold">
-          {deliveryWindow} / {formatInr(deliveryFee)}
+          {deliveryEstimateMinutes} min / ₹{deliveryFee}
         </p>
       </div>
     </div>

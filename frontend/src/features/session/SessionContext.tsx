@@ -257,7 +257,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
   }, [session, fetchCartDetails]);
 
-  // Reset session
   const clearSession = useCallback(async () => {
     setError(null);
     setIsLoading(true);
@@ -267,13 +266,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       console.warn("Delete session error:", err);
-    } finally {
-      localStorage.removeItem("fp_session_id");
-      setSession(null);
-      setCart(null);
-      setIsLoading(false);
-      // Create new session
+    }
+    localStorage.removeItem("fp_session_id");
+    setSession(null);
+    setCart(null);
+    setIsLoading(false);
+    // Create a fresh session after clearing
+    try {
       await initSession();
+    } catch (err) {
+      console.error("Failed to create new session after clear:", err);
     }
   }, [session, initSession]);
 

@@ -148,10 +148,10 @@ export const CartService = {
   },
 
   async removeItem(cartId: string, menuItemId: string, restaurantId: string): Promise<any> {
-    return request<any>(`/api/carts/${cartId}/items/${menuItemId}`, {
-      method: "DELETE",
-      body: JSON.stringify({ restaurantId }),
-    });
+    return request<any>(
+      `/api/carts/${cartId}/items/${menuItemId}?restaurantId=${encodeURIComponent(restaurantId)}`,
+      { method: "DELETE" }
+    );
   },
 };
 

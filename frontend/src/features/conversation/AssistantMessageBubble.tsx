@@ -74,21 +74,17 @@ export function AssistantMessageBubble({ message, isLatest }: AssistantMessageBu
   const { session } = useSessionContext();
 
   const renderSpecialCards = () => {
-    if (!session) return null;
+    if (!session || !isLatest) return null;
 
-    const matchedRecommendation = session.lastRecommendationResults?.find((result) => {
-      if (!result || typeof result !== "object") return false;
-      const messageContent = (result as { messageContent?: unknown }).messageContent;
-      return typeof messageContent === "string" && messageContent === message.content;
-    });
-
-    if (matchedRecommendation) {
-      return <RecommendationCard recommendation={matchedRecommendation} />;
+    // 1. Recommendation results — show the first result card on the latest assistant message
+    if (
+      session.lastRecommendationResults &&
+      session.lastRecommendationResults.length > 0
+    ) {
+      return <RecommendationCard recommendation={session.lastRecommendationResults[0] as any} />;
     }
 
-    if (!isLatest) return null;
-
-    // 1. Awaiting recommendation refinement clarification
+    // 2. Awaiting recommendation refinement clarification
     if (session.awaitingRecommendationRefinement) {
       return <ClarificationCard />;
     }
